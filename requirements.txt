@@ -1,0 +1,6 @@
+dash_bootstrap_components
+Dash
+Pandas
+Plotly
+requests
+wordcloud
