@@ -9,6 +9,7 @@ from dash import html, dcc, dash_table
 from ApiClient import StreamerApiClient, ModelApiClient
 import pandas as pd
 import dash_bootstrap_components as dbc
+from components import *
 
 from plotly import graph_objs as go
 
@@ -73,7 +74,7 @@ card_positives = dbc.Card(
                 html.P(f"{df['user_id'].nunique()}", id="positives_count",
                        className="h2 font-weight-bold mb-0",
                        ),
-                html.H6("No. of Tweets",
+                html.H6("No. of positive users",
                         className="card-title text-uppercase text-muted mb-0"),
 
             ]
@@ -89,7 +90,7 @@ card_negatives = dbc.Card(
                 html.P(f"{df['user_id'].nunique()}", id="negatives_count",
                        className="h2 font-weight-bold mb-0",
                        ),
-                html.H6("No. of Tweets",
+                html.H6("No. of negative users",
                         className="card-title text-uppercase text-muted mb-0"),
 
             ]
@@ -313,26 +314,27 @@ def trend_graph(value, options):
     return {'data': data, 'layout': layout}
 
 
-@app.callback(Output('store-sentiment-prediction', 'data'),  [Input('button-refresh-predict', 'n_clicks')], [State('store-stream-data', 'data'), State('button-stream', 'n_clicks')], prevent_initial_call=False)
+@app.callback([Output('store-sentiment-prediction', 'data'), Output('button-refresh-predict', 'n_clicks')],  [Input('button-refresh-predict', 'n_clicks')], [State('store-stream-data', 'data'), State('button-stream', 'n_clicks')], prevent_initial_call=False)
 def placeholder(refresh_button_clicks, data, stream_button_clicks):
     if not data:
         if not refresh_button_clicks:
             df_offline_tweets = pd.read_json(streamer_api.get_offline_tweets())
             df_sentiment = pd.read_json(model_api.predict(df_offline_tweets['text']))
-            return df_sentiment.to_dict('records')
+            return [df_sentiment.to_dict('records'), refresh_button_clicks]
         else:
             raise dash.exceptions.PreventUpdate
     else:
         isStreaming = stream_button_clicks % 2 == 1
         if isStreaming:
+            n_clicks = 0
             df_stream = pd.read_json(data)
             df_sentiment = pd.read_json(model_api.predict(df_stream['text']))
-            return df_sentiment.to_dict('records')
+            return [df_sentiment.to_dict('records', ), n_clicks]
         else:
             if refresh_button_clicks == 1:
                 df_stream = pd.read_json(data)
                 df_sentiment = pd.read_json(model_api.predict(df_stream['text']))
-                return df_sentiment.to_dict('records')
+                return [df_sentiment.to_dict('records'), refresh_button_clicks]
             else:
                 raise dash.exceptions.PreventUpdate
 
