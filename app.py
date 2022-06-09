@@ -1,15 +1,15 @@
-import time
+
 from utils import *
 from io import BytesIO
 import base64
-
+from graphs import *
 import dash
 from dash.dependencies import Input, Output, State
 from dash import html, dcc, dash_table
 from ApiClient import StreamerApiClient, ModelApiClient
 import pandas as pd
 import dash_bootstrap_components as dbc
-from components import *
+from functions import *
 
 from plotly import graph_objs as go
 
@@ -134,55 +134,6 @@ config_card = dbc.Card([
     class_name="card shadow",
 )
 
-table_header = [
-    html.Thead(
-        html.Tr([
-            html.Th("Tweet"),
-            html.Th("Name"),
-            html.Th("Screen Name"),
-            html.Th("Location"),
-            html.Th("Topic"),
-        ]),
-        className="thead-light"), ]
-
-table_body = [
-    html.Tbody(
-
-        [html.Tr([html.Td(row['text'], style={'whiteSpace': 'normal',
-                                              'height': 'auto',
-                                              'width': 'auto',
-                                              'word-wrap': 'break-word'}), html.Td(row['name'], style={'whiteSpace': 'normal',
-                                                                                                       'height': '100px',
-                                                                                                       'width': '50px',
-                                                                                                       'word-wrap': 'break-word'}), html.Td(row['screen_name'], style={'whiteSpace': 'normal',
-                                                                                                                                                                       'height': 'auto',
-                                                                                                                                                                       'width': 'auto',
-                                                                                                                                                                       'word-wrap': 'break-word'}),
-                  html.Td(row['location'], style={'whiteSpace': 'normal',
-                                                  'height': 'auto',
-                                                  'width': 'auto',
-                                                  'word-wrap': 'break-word'}), html.Td(row['topic'], style={'whiteSpace': 'normal',
-                                                                                                            'height': 'auto',
-                                                                                                            'width': 'auto',
-                                                                                                            'word-wrap': 'break-word'})]) for i, row in df_show.iterrows()], className="",)
-]
-
-card_table = dbc.Card(
-    [
-        dbc.CardHeader(html.H2(
-            "Tweets"), class_name="card-header bg-transparent row align-items-center mb-0"),
-        dbc.CardBody([
-            html.Div([
-                dbc.Table(table_header + table_body, bordered=True, hover=True, responsive=True, striped=False,  style={},
-                          class_name="table ",),
-            ], className="table-responsive"),
-        ],
-            className="table-responsive"),
-    ],
-    class_name="card shadow",
-
-)
-
 
 trend_graph = dcc.Graph(id='trend_graph', className='card shadow',)
 sentiment_graph = dcc.Graph(id='sentiment_graph', className='card shadow',)
@@ -275,43 +226,8 @@ def update_count(data):
 @app.callback(Output('trend_graph', 'figure'),  [Input("dropdown-trending-countries", "value"), State('dropdown-trending-countries', 'options')])
 def trend_graph(value, options):
     label = [x['label'] for x in options if x['value'] == value][0]
-    df_trends = pd.read_json(streamer_api.get_trending_hashtags(int(value)))
-    df_trends = df_trends[['name', 'tweet_volume']]
-    df_trends = df_trends.sort_values(by='tweet_volume', ascending=False)
-    df_trends = df_trends.head(10)
-
-    data = [go.Bar(
-            x=df_trends['name'],
-            y=df_trends['tweet_volume'],
-            text=df_trends['tweet_volume'],
-            textposition='auto',
-            marker=dict(
-                color='#00d1ff',
-            ),
-            )]
-
-    layout = go.Layout(
-        title=f'Top 10 Trending Hashtags ({label})',
-        plot_bgcolor='#1D262F',
-        paper_bgcolor='#1D262F',
-        font=dict(
-            family='Open Sans, sans-serif',
-            size=12,
-            color='#7f7f7f',
-        ),
-        autosize=True,
-        grid=dict(
-        ),
-        modebar=dict(orientation='v'),
-        xaxis=dict(color='#8898aa',),
-        yaxis=dict(color='#8898aa', gridwidth=1, gridcolor='#5C8CBE'),
-
-
-    )
-    layout.titlefont = dict(size=24, color='#8898aa',
-                            family='Open Sans, sans-serif')
-
-    return {'data': data, 'layout': layout}
+    df_trends = get_trends(value)
+    return get_trends_graph(df_trends, label)
 
 
 @app.callback([Output('store-sentiment-prediction', 'data'), Output('button-refresh-predict', 'n_clicks')],  [Input('button-refresh-predict', 'n_clicks')], [State('store-stream-data', 'data'), State('button-stream', 'n_clicks')], prevent_initial_call=False)
@@ -319,7 +235,8 @@ def placeholder(refresh_button_clicks, data, stream_button_clicks):
     if not data:
         if not refresh_button_clicks:
             df_offline_tweets = pd.read_json(streamer_api.get_offline_tweets())
-            df_sentiment = pd.read_json(model_api.predict(df_offline_tweets['text']))
+            df_sentiment = pd.read_json(
+                model_api.predict(df_offline_tweets['text']))
             return [df_sentiment.to_dict('records'), refresh_button_clicks]
         else:
             raise dash.exceptions.PreventUpdate
@@ -333,7 +250,8 @@ def placeholder(refresh_button_clicks, data, stream_button_clicks):
         else:
             if refresh_button_clicks == 1:
                 df_stream = pd.read_json(data)
-                df_sentiment = pd.read_json(model_api.predict(df_stream['text']))
+                df_sentiment = pd.read_json(
+                    model_api.predict(df_stream['text']))
                 return [df_sentiment.to_dict('records'), refresh_button_clicks]
             else:
                 raise dash.exceptions.PreventUpdate
@@ -341,51 +259,8 @@ def placeholder(refresh_button_clicks, data, stream_button_clicks):
 
 @app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data')], prevent_initial_call=False)
 def sentiment_graph(data):
-    df_sentiment = pd.DataFrame(data)
-    df_sentiment = df_sentiment.drop(columns=['tweet'], axis=1)
-    sentiment_count = df_sentiment['label'].value_counts()
-
-    def __get_color(sentiment):
-        if sentiment == 'POSITIVE':
-            return '#00d1ff'
-        elif sentiment == 'NEGATIVE':
-            return '#ff4a55'
-        else:
-            return '#33ffe6'
-
-    data = [go.Pie(
-            labels=sentiment_count.index,
-            values=sentiment_count,
-            marker=dict(
-                colors=[__get_color(sentiment)
-                        for sentiment in sentiment_count.index],
-            ),
-            text=[l for l in sentiment_count.index],
-            textposition='auto',
-            )]
-
-    layout = go.Layout(
-        title='Sentiment Percentage',
-        plot_bgcolor='#1D262F',
-        paper_bgcolor='#1D262F',
-        font=dict(
-            family='Open Sans, sans-serif',
-            size=12,
-            color='#7f7f7f',
-        ),
-        autosize=True,
-        grid=dict(
-        ),
-        modebar=dict(orientation='v'),
-        xaxis=dict(color='#8898aa',),
-        yaxis=dict(color='#8898aa', gridwidth=1, gridcolor='#5C8CBE'),
-
-
-    )
-    layout.titlefont = dict(size=24, color='#8898aa',
-                            family='Open Sans, sans-serif')
-
-    return {'data': data, 'layout': layout}
+    sentiment_count = get_sentiment_count(data)
+    return get_sentiment_graph(sentiment_count)
 
 
 @app.callback(Output('negative-wordcloud', 'src'),  [Input('store-sentiment-prediction', 'data')], prevent_initial_call=False)
