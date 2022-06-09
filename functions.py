@@ -1,5 +1,6 @@
 import pandas as pd
 from ApiClient import StreamerApiClient
+from collections import Counter
 
 streamer_api = StreamerApiClient()
 
@@ -12,6 +13,12 @@ def get_trends(value):
 
 def get_sentiment_count(data):
     df_sentiment = pd.DataFrame(data)
-    df_sentiment = df_sentiment.drop(columns=['tweet'], axis=1)
     sentiment_count = df_sentiment['label'].value_counts()
     return sentiment_count
+
+def get_sentiment_word_count(data, sentiment):
+    df_sentiment = pd.DataFrame(data)
+    # print(df_sentiment)
+    df = df_sentiment.query(f"label == '{sentiment}'")
+    print(df)
+    return df.tweet.str.split(expand=True).stack().value_counts()

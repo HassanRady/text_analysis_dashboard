@@ -1,19 +1,16 @@
 
+from tabs import *
 from utils import *
-from io import BytesIO
-import base64
 from graphs import *
 import dash
 from dash.dependencies import Input, Output, State
-from dash import html, dcc, dash_table
+from dash import html, dcc
 from ApiClient import StreamerApiClient, ModelApiClient
 import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
+from main import app
 
-from plotly import graph_objs as go
-
-app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 streamer_api = StreamerApiClient()
 model_api = ModelApiClient()
 
@@ -137,25 +134,30 @@ config_card = dbc.Card([
 
 trend_graph = dcc.Graph(id='trend_graph', className='card shadow',)
 sentiment_graph = dcc.Graph(id='sentiment_graph', className='card shadow',)
-negative_word_cloud = dcc.Graph(
-    id='negative_word_cloud', className='card shadow',)
-positive_word_cloud = dcc.Graph(
-    id='positive_word_cloud', className='card shadow',)
+
+
+tab_positive_word_cloud = dbc.Tab(
+    label="Positive Word Cloud", tab_id="tab-positive-word-cloud",)
+tab_positive_word_count = dbc.Tab(
+    label="Positive Word Count", tab_id="tab-positive-word-count", )
+
+tab_negative_word_cloud = dbc.Tab(
+    label="Negative Word Cloud", tab_id="tab-negative-word-cloud", style={}, labelClassName="w-100")
+tab_negative_word_count = dbc.Tab(
+    label="Negative Word Count", tab_id="tab-negative-word-count",  style={})
+
+positive_tabs = dbc.Tabs(
+    [tab_positive_word_cloud, tab_positive_word_count], id="positive_tab", active_tab='tab-positive-word-cloud',)
+
+negative_tabs = html.Div(dbc.Tabs(
+    [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},)
+    ,className="")
+
 
 store_stream_data = dcc.Store(id='store-stream-data', storage_type='memory')
 store_sentiment_prediction = dcc.Store(
     id='store-sentiment-prediction', storage_type='memory')
 
-negative_wordcloud = html.Div([html.P("Negative Word Cloud",
-                                      className="", style={'margin': '0.5em', 'text-align': 'center', 'color': '#8898aa', 'family': 'Open Sans, sans-serif', 'font-size': '1.5em'}),
-                               html.Img(id='negative-wordcloud',),
-                               ], className="card shadow")
-
-
-positive_wordcloud = html.Div([html.P("Positive Word Cloud",
-                                      className="", style={'margin': '0.5em', 'text-align': 'center', 'color': '#8898aa', 'family': 'Open Sans, sans-serif', 'font-size': '1.5em'}),
-                               html.Img(id='positive-wordcloud',),
-                               ], className="card shadow")
 
 
 app.layout = html.Div(
@@ -170,7 +172,9 @@ app.layout = html.Div(
                     dbc.Col(card_positives, width=3),
                     dbc.Col(card_negatives, width=3),
                 ]),
+
                 html.Div(id='placeholder', style={'display': 'none'}),
+
                 html.Div(
                     dbc.Row([
                         dbc.Col(html.Div([trend_graph],
@@ -183,10 +187,20 @@ app.layout = html.Div(
 
         dbc.Row([
             dbc.Col(html.Div(sentiment_graph, className="card shadow"), width=4),
-            dbc.Col(negative_wordcloud,
-                    width=4),
-            dbc.Col(positive_wordcloud,
-                    width=4),
+
+            dbc.Col(dbc.Row([
+                negative_tabs,
+                html.Div(id='negative-tab-content', children=[]),
+            ],
+            ), width=4),
+
+
+
+            dbc.Col(dbc.Row([
+                positive_tabs,
+                html.Div(id='positive-tab-content', children=[]),
+            ],
+            ), width=4),
         ]),
      ])
 
@@ -263,21 +277,26 @@ def sentiment_graph(data):
     return get_sentiment_graph(sentiment_count)
 
 
-@app.callback(Output('negative-wordcloud', 'src'),  [Input('store-sentiment-prediction', 'data')], prevent_initial_call=False)
-def negative_wordcloud(data):
-    img = BytesIO()
-    df_sentiment = pd.DataFrame(data)
-    make_sentiment_wordcloud(df_sentiment, "NEGATIVE").save(img, format='PNG')
-    return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
+@app.callback(
+    Output("negative-tab-content", "children"),
+    [Input("negative_tab", "active_tab")]
+)
+def switch_negative_tab(active_tab):
+    if active_tab == "tab-negative-word-cloud":
+        return layout_negative_wordcloud
+    elif active_tab == "tab-negative-word-count":
+        return layout_grapth_negative_word_count
 
 
-@app.callback(Output('positive-wordcloud', 'src'),  [Input('store-sentiment-prediction', 'data')], prevent_initial_call=False)
-def positive_wordcloud(data):
-    img = BytesIO()
-    df_sentiment = pd.DataFrame(data)
-    make_sentiment_wordcloud(df_sentiment, "POSITIVE").save(img, format='PNG')
-    return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
-
+@app.callback(
+    Output("positive-tab-content", "children"),
+    [Input("positive_tab", "active_tab")]
+)
+def switch_positive_tab(active_tab):
+    if active_tab == "tab-positive-word-cloud":
+        return layout_positive_wordcloud
+    elif active_tab == "tab-positive-word-count":
+        return layout_grapth_positive_word_count
 
 if __name__ == '__main__':
     app.run_server(debug=True, port='7020')
