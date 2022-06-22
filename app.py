@@ -15,7 +15,7 @@ streamer_api = StreamerApiClient()
 model_api = ModelApiClient()
 
 df = pd.read_json(streamer_api.get_offline_tweets())[
-    ['text', 'name', 'screen_name', 'location', 'topic', 'user_id']]
+    ['text', 'name', 'screen_name', 'location', 'topic', 'user_id']][:4000]
 df_show = df.copy().drop(columns=['user_id'])
 
 
@@ -158,6 +158,7 @@ store_stream_data = dcc.Store(id='store-stream-data', storage_type='memory')
 store_sentiment_prediction = dcc.Store(
     id='store-sentiment-prediction', storage_type='memory')
 
+spinner =  dbc.Spinner(children=[sentiment_graph], size="lg", color="primary", type="border", fullscreen=True,)
 
 
 app.layout = html.Div(
@@ -245,11 +246,11 @@ def trend_graph(value, options):
 
 
 @app.callback([Output('store-sentiment-prediction', 'data'), Output('button-refresh-predict', 'n_clicks')],  [Input('button-refresh-predict', 'n_clicks')], [State('store-stream-data', 'data'), State('button-stream', 'n_clicks')], prevent_initial_call=False)
-def placeholder(refresh_button_clicks, data, stream_button_clicks):
+def make_prediction(refresh_button_clicks, data, stream_button_clicks):
     if not data:
         if not refresh_button_clicks:
             df_offline_tweets = pd.read_json(streamer_api.get_offline_tweets())
-            df_sentiment = pd.read_json(
+            df_sentiment = form_sntiment_prediction_df(
                 model_api.predict(df_offline_tweets['text']))
             return [df_sentiment.to_dict('records'), refresh_button_clicks]
         else:
@@ -259,12 +260,12 @@ def placeholder(refresh_button_clicks, data, stream_button_clicks):
         if isStreaming:
             n_clicks = 0
             df_stream = pd.read_json(data)
-            df_sentiment = pd.read_json(model_api.predict(df_stream['text']))
+            df_sentiment = form_sntiment_prediction_df(model_api.predict(df_stream['text']))
             return [df_sentiment.to_dict('records', ), n_clicks]
         else:
             if refresh_button_clicks == 1:
                 df_stream = pd.read_json(data)
-                df_sentiment = pd.read_json(
+                df_sentiment = form_sntiment_prediction_df(
                     model_api.predict(df_stream['text']))
                 return [df_sentiment.to_dict('records'), refresh_button_clicks]
             else:

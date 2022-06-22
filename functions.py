@@ -4,6 +4,7 @@ from collections import Counter
 
 streamer_api = StreamerApiClient()
 
+
 def get_trends(value):
     df_trends = pd.read_json(streamer_api.get_trending_hashtags(int(value)))
     df_trends = df_trends[['name', 'tweet_volume']]
@@ -18,7 +19,6 @@ def get_sentiment_count(data):
 
 def get_sentiment_word_count(data, sentiment):
     df_sentiment = pd.DataFrame(data)
-    # print(df_sentiment)
     df = df_sentiment.query(f"label == '{sentiment}'")
-    print(df)
     return df.tweet.str.split(expand=True).stack().value_counts()
+
