@@ -1,5 +1,5 @@
 import pandas as pd
-from ApiClient import StreamerApiClient
+from streamApi import StreamerApiClient
 from collections import Counter
 
 streamer_api = StreamerApiClient()

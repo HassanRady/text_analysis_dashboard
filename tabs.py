@@ -5,7 +5,6 @@ from graphs import *
 import dash
 from dash.dependencies import Input, Output, State
 from dash import html, dcc, dash_table
-from ApiClient import StreamerApiClient, ModelApiClient
 import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
@@ -36,12 +35,16 @@ def tab_grapth_negative_word_count(data):
     return make_graph_negative_word_count(data)
 
 
+refresh_predict_spinner =  dbc.Spinner( children=html.Img(id='positive-wordcloud',) ,size="lg", color="light", type="border", fullscreen=False,)
 
 layout_positive_wordcloud = html.Div([
-    # html.P("Negative Word Cloud",
-    #        className="", style={'margin': '0.5em', 'text-align': 'center', 'color': '#8898aa', 'family': 'Open Sans, sans-serif', 'font-size': '1.5em'}),
-    html.Img(id='positive-wordcloud',),
+    html.Img(id='positive-wordcloud',), 
+# refresh_predict_spinner
 ], className="card shadow", style={'margin':'0px 0px 0px 0px'})
+
+layout_positive_wordcloud = html.Div([layout_positive_wordcloud],
+    className="card shadow", style={'margin':'0px 0px 0px 0px'}
+)
 
 
 @app.callback(Output('positive-wordcloud', 'src'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False, )

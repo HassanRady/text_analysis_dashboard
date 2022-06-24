@@ -1,11 +1,13 @@
+import time
 
 from tabs import *
 from utils import *
 from graphs import *
 import dash
 from dash.dependencies import Input, Output, State
-from dash import html, dcc
-from ApiClient import StreamerApiClient, ModelApiClient
+from dash import html, dcc, ctx
+from streamApi import StreamerApiClient
+from sentiment_api import ModelApiClient
 import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
@@ -101,8 +103,12 @@ trending_countries = {'United States': '23424977',
 dropdown_trending_countries = dcc.Dropdown(
     id='dropdown-trending-countries', options=[{'label': k, 'value': v} for k, v in trending_countries.items()], value='23424977', style={'width': '70%'}, clearable=False)
 
-button_refresh_predict = dbc.Button("", id="button-refresh-predict", className="glyphicon glyphicon-refresh",
-                                    style={'width': '20%', 'font-size': '100%'}, color="light")
+button_refresh_predict = dbc.Button("Predict", id="button-refresh-predict", className="",
+                                    style={'width': '20%', 'font-size': '100%'}, color="dark",)
+refresh_predict_spinner = dbc.Spinner(
+    size="lg", color="light", type="border", fullscreen=False,)
+
+
 config_card = dbc.Card([
     dbc.CardHeader("Configure Dashboard", className="card-header"),
     dbc.CardBody([dropdown_trending_countries, button_refresh_predict,
@@ -137,7 +143,7 @@ sentiment_graph = dcc.Graph(id='sentiment_graph', className='card shadow',)
 
 
 tab_positive_word_cloud = dbc.Tab(
-    label="Positive Word Cloud", tab_id="tab-positive-word-cloud",)
+    label="Positive Word Cloud", tab_id="tab-positive-word-cloud", style={}, labelClassName="w-100")
 tab_positive_word_count = dbc.Tab(
     label="Positive Word Count", tab_id="tab-positive-word-count", )
 
@@ -146,19 +152,17 @@ tab_negative_word_cloud = dbc.Tab(
 tab_negative_word_count = dbc.Tab(
     label="Negative Word Count", tab_id="tab-negative-word-count",  style={})
 
-positive_tabs = dbc.Tabs(
-    [tab_positive_word_cloud, tab_positive_word_count], id="positive_tab", active_tab='tab-positive-word-cloud',)
+positive_tabs = html.Div(dbc.Tabs(
+    [tab_positive_word_cloud, tab_positive_word_count], id="positive_tab", active_tab='tab-positive-word-cloud', style={'background-color': "#1D262F"})
+)   
 
 negative_tabs = html.Div(dbc.Tabs(
-    [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},)
-    ,className="")
+    [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},), className="")
 
 
 store_stream_data = dcc.Store(id='store-stream-data', storage_type='memory')
 store_sentiment_prediction = dcc.Store(
     id='store-sentiment-prediction', storage_type='memory')
-
-spinner =  dbc.Spinner(children=[sentiment_graph], size="lg", color="primary", type="border", fullscreen=True,)
 
 
 app.layout = html.Div(
@@ -260,7 +264,8 @@ def make_prediction(refresh_button_clicks, data, stream_button_clicks):
         if isStreaming:
             n_clicks = 0
             df_stream = pd.read_json(data)
-            df_sentiment = form_sntiment_prediction_df(model_api.predict(df_stream['text']))
+            df_sentiment = form_sntiment_prediction_df(
+                model_api.predict(df_stream['text']))
             return [df_sentiment.to_dict('records', ), n_clicks]
         else:
             if refresh_button_clicks == 1:
@@ -272,8 +277,11 @@ def make_prediction(refresh_button_clicks, data, stream_button_clicks):
                 raise dash.exceptions.PreventUpdate
 
 
-@app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data')], prevent_initial_call=False)
-def sentiment_graph(data):
+@app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False)
+def sentiment_graph(data, ):
+    fired_callback_id = ctx.triggered_id
+    # if fired_callback_id == 'button-refresh-predict.n_clicks':
+
     sentiment_count = get_sentiment_count(data)
     return get_sentiment_graph(sentiment_count)
 
@@ -296,8 +304,10 @@ def switch_negative_tab(active_tab):
 def switch_positive_tab(active_tab):
     if active_tab == "tab-positive-word-cloud":
         return layout_positive_wordcloud
+        # return refresh_predict_spinner
     elif active_tab == "tab-positive-word-count":
         return layout_grapth_positive_word_count
+
 
 if __name__ == '__main__':
     app.run_server(debug=True, port='7020')
