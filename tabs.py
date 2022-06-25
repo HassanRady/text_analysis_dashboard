@@ -12,8 +12,6 @@ from main import app
 from graphs import *
 
 layout_negative_wordcloud = html.Div([
-    # html.P("Negative Word Cloud",
-    #        className="", style={'margin': '0.5em', 'text-align': 'center', 'color': '#8898aa', 'family': 'Open Sans, sans-serif', 'font-size': '1.5em'}),
     html.Img(id='negative-wordcloud',),
 ], className="card shadow", style={'margin':'0px 0px 0px 0px'})
 

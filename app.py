@@ -12,12 +12,15 @@ import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
 from main import app
+from Models.keyword_extraction_api import *
+from Models.NER_api import *
+
 
 streamer_api = StreamerApiClient()
 model_api = ModelApiClient()
 
 df = pd.read_json(streamer_api.get_offline_tweets())[
-    ['text', 'name', 'screen_name', 'location', 'topic', 'user_id']][:4000]
+    ['text', 'name', 'screen_name', 'location', 'topic', 'user_id']][:2000]
 df_show = df.copy().drop(columns=['user_id'])
 
 
@@ -154,7 +157,7 @@ tab_negative_word_count = dbc.Tab(
 
 positive_tabs = html.Div(dbc.Tabs(
     [tab_positive_word_cloud, tab_positive_word_count], id="positive_tab", active_tab='tab-positive-word-cloud', style={'background-color': "#1D262F"})
-)   
+)
 
 negative_tabs = html.Div(dbc.Tabs(
     [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},), className="")
@@ -164,6 +167,18 @@ store_stream_data = dcc.Store(id='store-stream-data', storage_type='memory')
 store_sentiment_prediction = dcc.Store(
     id='store-sentiment-prediction', storage_type='memory')
 
+
+kewords_word_cloud = dbc.Card(dbc.CardHeader(
+    "Keywords", className="card-header"),
+    dbc.CardBody(
+    html.Div([
+        html.Img(id='keywords-wordcloud',),
+    ], className="card shadow", style={'margin': '0px 0px 0px 0px'})
+))
+
+ner_word_cloud = html.Div([
+    html.Img(id='ner-wordcloud',),
+], className="card shadow", style={'margin': '0px 0px 0px 0px'})
 
 app.layout = html.Div(
     [interval, store_stream_data, store_sentiment_prediction,
@@ -207,6 +222,11 @@ app.layout = html.Div(
             ],
             ), width=4),
         ]),
+        dbc.Row([
+            dbc.Col(html.Div(children=kewords_word_cloud,
+                    className="card shadow"), width=4),
+            dbc.Col(html.Div(ner_word_cloud, className="card shadow"), width=4),
+        ])
      ])
 
 
@@ -307,6 +327,30 @@ def switch_positive_tab(active_tab):
         # return refresh_predict_spinner
     elif active_tab == "tab-positive-word-count":
         return layout_grapth_positive_word_count
+
+
+@app.callback(Output('keywords-wordcloud', 'src'), Input('store-stream-data', 'data'), Input('button-stream', 'n_clicks'))
+def get_keywords(data, stream_button_clicks):
+    if not stream_button_clicks:
+        df_stream = df
+    else:
+        df_stream = pd.read_json(data)
+    img = BytesIO()
+    keywords = extract_keywords(df_stream['text'])['keywords']
+    make_wordcloud(" ".join(keywords)).save(img, format='PNG')
+    return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
+
+
+@app.callback(Output('ner-wordcloud', 'src'), Input('store-stream-data', 'data'))
+def get_ents(data):
+    if not data:
+        df_stream = df
+    else:
+        df_stream = pd.read_json(data)
+    img = BytesIO()
+    ents = get_ner(df_stream['text'])['entities']
+    make_wordcloud(" ".join(ents)).save(img, format='PNG')
+    return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
 
 if __name__ == '__main__':
