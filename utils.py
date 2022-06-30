@@ -57,10 +57,10 @@ def make_sentiment_wordcloud(df_preds, sentiment):
 
     mask = np.array(Image.open("twitter2.png"))
     wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
-                        max_words=1000, mask=mask, contour_color='yellow', random_state=42, ).generate(text)
+                        max_words=1000, mask=mask, contour_color='yellow', random_state=42, colormap='tab20c',).generate(text)
     return wordcloud.to_image()
 
-def make_wordcloud(text):
+def make_wordcloud(text, width=400, height=400, ):
     wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
-                        max_words=1000, random_state=42, height=400).generate(text)
+                        max_words=1000, random_state=42, height=height, width=width,  colormap='tab20c',).generate(text)
     return wordcloud.to_image()

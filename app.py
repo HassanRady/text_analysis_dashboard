@@ -20,7 +20,7 @@ streamer_api = StreamerApiClient()
 model_api = ModelApiClient()
 
 df = pd.read_json(streamer_api.get_offline_tweets())[
-    ['text', 'name', 'screen_name', 'location', 'topic', 'user_id']][:2000]
+    ['text', 'name', 'screen_name', 'location', 'topic', 'user_id']][:1000]
 df_show = df.copy().drop(columns=['user_id'])
 
 
@@ -168,17 +168,29 @@ store_sentiment_prediction = dcc.Store(
     id='store-sentiment-prediction', storage_type='memory')
 
 
-kewords_word_cloud = dbc.Card(dbc.CardHeader(
-    "Keywords", className="card-header"),
-    dbc.CardBody(
-    html.Div([
-        html.Img(id='keywords-wordcloud',),
-    ], className="card shadow", style={'margin': '0px 0px 0px 0px'})
-))
+card_kewords_word_cloud = dbc.Card([
+    dbc.CardHeader(
+        "Keywords", className="card-header", style={'position': 'center', 'color': '#8898aa'}),
 
-ner_word_cloud = html.Div([
-    html.Img(id='ner-wordcloud',),
-], className="card shadow", style={'margin': '0px 0px 0px 0px'})
+    dbc.CardBody([
+        html.Div(
+            dbc.CardImg(id='keywords-wordcloud',), className="", style={'height': '500px'},
+        )
+    ], className=""),
+],
+    className="card shadow", )
+
+card_ner_word_cloud = dbc.Card([
+    dbc.CardHeader(
+        "Entities", className="card-header", style={'position': 'center', 'color': '#8898aa'}),
+
+    dbc.CardBody([
+        html.Div(
+            dbc.CardImg(id='ner-wordcloud',), className=""
+        )
+    ], className=""),
+],
+    className="card shadow",)
 
 app.layout = html.Div(
     [interval, store_stream_data, store_sentiment_prediction,
@@ -205,6 +217,13 @@ app.layout = html.Div(
 
         ]),
 
+     dbc.Row([
+         dbc.Col(card_kewords_word_cloud, ),
+         dbc.Col(card_ner_word_cloud, ),
+
+     ],),
+
+
         dbc.Row([
             dbc.Col(html.Div(sentiment_graph, className="card shadow"), width=4),
 
@@ -222,11 +241,9 @@ app.layout = html.Div(
             ],
             ), width=4),
         ]),
-        dbc.Row([
-            dbc.Col(html.Div(children=kewords_word_cloud,
-                    className="card shadow"), width=4),
-            dbc.Col(html.Div(ner_word_cloud, className="card shadow"), width=4),
-        ])
+
+
+
      ])
 
 
@@ -273,7 +290,7 @@ def trend_graph(value, options):
 def make_prediction(refresh_button_clicks, data, stream_button_clicks):
     if not data:
         if not refresh_button_clicks:
-            df_offline_tweets = pd.read_json(streamer_api.get_offline_tweets())
+            df_offline_tweets = df
             df_sentiment = form_sntiment_prediction_df(
                 model_api.predict(df_offline_tweets['text']))
             return [df_sentiment.to_dict('records'), refresh_button_clicks]
@@ -337,19 +354,19 @@ def get_keywords(data, stream_button_clicks):
         df_stream = pd.read_json(data)
     img = BytesIO()
     keywords = extract_keywords(df_stream['text'])['keywords']
-    make_wordcloud(" ".join(keywords)).save(img, format='PNG')
+    make_wordcloud(" ".join(keywords), 810, 500).save(img, format='PNG')
     return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
 
-@app.callback(Output('ner-wordcloud', 'src'), Input('store-stream-data', 'data'))
-def get_ents(data):
-    if not data:
+@app.callback(Output('ner-wordcloud', 'src'), Input('store-stream-data', 'data'), Input('button-stream', 'n_clicks'))
+def get_ents(data, stream_button_clicks):
+    if not stream_button_clicks:
         df_stream = df
     else:
         df_stream = pd.read_json(data)
     img = BytesIO()
     ents = get_ner(df_stream['text'])['entities']
-    make_wordcloud(" ".join(ents)).save(img, format='PNG')
+    make_wordcloud(" ".join(ents), 810, 500).save(img, format='PNG')
     return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
 
