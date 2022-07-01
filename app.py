@@ -14,10 +14,12 @@ from functions import *
 from main import app
 from Models.keyword_extraction_api import *
 from Models.NER_api import *
+from Models.emotion_api import *
 
 
 streamer_api = StreamerApiClient()
 model_api = ModelApiClient()
+emotion_api = EmotionApiClient()
 
 df = pd.read_json(streamer_api.get_offline_tweets())[
     ['text', 'name', 'screen_name', 'location', 'topic', 'user_id']][:1000]
@@ -111,29 +113,29 @@ button_refresh_predict = dbc.Button("Predict", id="button-refresh-predict", clas
 refresh_predict_spinner = dbc.Spinner(
     size="lg", color="light", type="border", fullscreen=False,)
 
+refresh_rate = [dbc.Label("Refresh rate:", style={
+    'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
+    dcc.Slider(
+    id="refresh_rate",
+    min=2,
+    max=100,
+    value=5,
+    className="",
+), ]
+
+stream_search = [dbc.Label("Topic to search:", style={
+    'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
+    dbc.Input(id="topic-input", type="text", placeholder="Enter topic",
+              className="", style={'width': '40%'}),
+    dbc.Button(children="Search",
+               id="button-stream", color="primary",), ]
 
 config_card = dbc.Card([
     dbc.CardHeader("Configure Dashboard", className="card-header"),
-    dbc.CardBody([dropdown_trending_countries, button_refresh_predict,
-                  dbc.Form([
-                      dbc.Label("Topic to search:", style={
-                          'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
-                      dbc.Input(id="topic-input", type="text", placeholder="Enter topic",
-                                className="", style={'width': '40%'}),
-                      dbc.Label("Refresh rate:", style={
-                                'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
-                      dcc.Slider(
-                          id="refresh_rate",
-                          min=6,
-                          max=100,
-                          value=6,
-                          className="",
-                      ),
-                      dbc.Button(children="Search",
-                                 id="button-stream", color="primary",),
-
-
-                  ],),
+    dbc.CardBody([dropdown_trending_countries,
+                  button_refresh_predict,
+                  *refresh_rate,
+                  *stream_search,
                   ]),
 ],
     id='config_card',
@@ -143,6 +145,7 @@ config_card = dbc.Card([
 
 trend_graph = dcc.Graph(id='trend_graph', className='card shadow',)
 sentiment_graph = dcc.Graph(id='sentiment_graph', className='card shadow',)
+emotion_graph = dcc.Graph(id='emotion_graph', className='card shadow',)
 
 
 tab_positive_word_cloud = dbc.Tab(
@@ -166,7 +169,8 @@ negative_tabs = html.Div(dbc.Tabs(
 store_stream_data = dcc.Store(id='store-stream-data', storage_type='memory')
 store_sentiment_prediction = dcc.Store(
     id='store-sentiment-prediction', storage_type='memory')
-
+store_emotion_prediction = dcc.Store(
+    id='store-emotion-prediction', storage_type='memory')
 
 card_kewords_word_cloud = dbc.Card([
     dbc.CardHeader(
@@ -193,7 +197,7 @@ card_ner_word_cloud = dbc.Card([
     className="card shadow",)
 
 app.layout = html.Div(
-    [interval, store_stream_data, store_sentiment_prediction,
+    [interval, store_stream_data, store_sentiment_prediction, store_emotion_prediction,
 
         dbc.Row([
             dbc.Col(config_card, width=4),
@@ -223,25 +227,26 @@ app.layout = html.Div(
 
      ],),
 
+     dbc.Row([
+         dbc.Col(html.Div(emotion_graph, className="card shadow"), width=6),
+         dbc.Col(html.Div(sentiment_graph, className="card shadow"), width=6),
+
+     ]),
 
         dbc.Row([
-            dbc.Col(html.Div(sentiment_graph, className="card shadow"), width=4),
 
             dbc.Col(dbc.Row([
                 negative_tabs,
                 html.Div(id='negative-tab-content', children=[]),
             ],
-            ), width=4),
-
-
+            ), width=6),
 
             dbc.Col(dbc.Row([
                 positive_tabs,
                 html.Div(id='positive-tab-content', children=[]),
             ],
-            ), width=4),
+            ), width=6),
         ]),
-
 
 
      ])
@@ -286,14 +291,16 @@ def trend_graph(value, options):
     return get_trends_graph(df_trends, label)
 
 
-@app.callback([Output('store-sentiment-prediction', 'data'), Output('button-refresh-predict', 'n_clicks')],  [Input('button-refresh-predict', 'n_clicks')], [State('store-stream-data', 'data'), State('button-stream', 'n_clicks')], prevent_initial_call=False)
+@app.callback([Output('store-sentiment-prediction', 'data'), Output('store-emotion-prediction', 'data'), Output('button-refresh-predict', 'n_clicks')],  [Input('button-refresh-predict', 'n_clicks')], [State('store-stream-data', 'data'), State('button-stream', 'n_clicks')], prevent_initial_call=False)
 def make_prediction(refresh_button_clicks, data, stream_button_clicks):
     if not data:
         if not refresh_button_clicks:
             df_offline_tweets = df
             df_sentiment = form_sntiment_prediction_df(
                 model_api.predict(df_offline_tweets['text']))
-            return [df_sentiment.to_dict('records'), refresh_button_clicks]
+            df_emotion = form_emotion_prediction_df(
+                emotion_api.predict(df_offline_tweets['text']))
+            return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), refresh_button_clicks]
         else:
             raise dash.exceptions.PreventUpdate
     else:
@@ -303,24 +310,34 @@ def make_prediction(refresh_button_clicks, data, stream_button_clicks):
             df_stream = pd.read_json(data)
             df_sentiment = form_sntiment_prediction_df(
                 model_api.predict(df_stream['text']))
-            return [df_sentiment.to_dict('records', ), n_clicks]
+            df_emotion = form_emotion_prediction_df(
+                emotion_api.predict(df_stream['text']))
+            return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), n_clicks]
         else:
             if refresh_button_clicks == 1:
                 df_stream = pd.read_json(data)
                 df_sentiment = form_sntiment_prediction_df(
                     model_api.predict(df_stream['text']))
-                return [df_sentiment.to_dict('records'), refresh_button_clicks]
+                df_emotion = form_emotion_prediction_df(
+                    emotion_api.predict(df_offline_tweets['text']))
+                return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), refresh_button_clicks]
             else:
                 raise dash.exceptions.PreventUpdate
 
 
 @app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False)
-def sentiment_graph(data, ):
-    fired_callback_id = ctx.triggered_id
+def make_sentiment_graph(data, ):
+    # fired_callback_id = ctx.triggered_id
     # if fired_callback_id == 'button-refresh-predict.n_clicks':
 
-    sentiment_count = get_sentiment_count(data)
+    sentiment_count = get_label_count(data)
     return get_sentiment_graph(sentiment_count)
+
+
+@app.callback(Output('emotion_graph', 'figure'),  [Input('store-emotion-prediction', 'data'), ], prevent_initial_call=False)
+def make_emotion_graph(data, ):
+    emotion_count = get_label_count(data)
+    return get_emotion_graph(emotion_count)
 
 
 @app.callback(

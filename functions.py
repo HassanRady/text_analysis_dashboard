@@ -12,10 +12,10 @@ def get_trends(value):
     df_trends = df_trends.head(10)
     return df_trends
 
-def get_sentiment_count(data):
-    df_sentiment = pd.DataFrame(data)
-    sentiment_count = df_sentiment['label'].value_counts()
-    return sentiment_count
+def get_label_count(data, col='label'):
+    df = pd.DataFrame(data)
+    label_count = df[col].value_counts()
+    return label_count
 
 def get_sentiment_word_count(data, sentiment):
     df_sentiment = pd.DataFrame(data)
