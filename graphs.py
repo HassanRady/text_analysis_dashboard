@@ -63,17 +63,17 @@ def get_emotion_graph(label_count):
     
     def __get_color(label):
         if label == 'joy':
-            return '#00d1ff'
+            return '#0aff3b'
         elif label == 'sadness':
-            return '#ff4a55'
+            return '#e70aff'
         elif label == 'anger':
-            return '#33ffe6'
+            return '#e7ff0a'
         elif label == 'fear':
-            return '#ff4a55'
+            return '#0a85ff'
         elif label == 'surprise':
-            return '#33ffe6'
+            return '#f54242'
         elif label == 'love':
-            return '#00d1ff'
+            return '#33ffe6'
 
     data = [go.Pie(hole=0.6,
             labels=label_count.index,

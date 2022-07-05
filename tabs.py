@@ -41,7 +41,7 @@ layout_positive_wordcloud = html.Div([
 ], className="card shadow", style={'margin':'0px 0px 0px 0px'})
 
 layout_positive_wordcloud = html.Div([layout_positive_wordcloud],
-    className="card shadow", style={'margin':'0px 0px 0px 0px'}
+    className="", style={'margin':'0px 0px 0px 0px'}
 )
 
 

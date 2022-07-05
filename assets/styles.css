@@ -4749,7 +4749,71 @@ input[type="button"].btn-block {
     color: rgba(255, 255, 255, 0.65);
 }
 
-#config_card {
+#react-select-2--value-item {
+    color: #fff;
+}
+
+.Select-menu-outer {
+    border: 1px solid #03acca;
+    border-radius: 5px;
+    background-color: #1D262F;
+    color: #03acca;
+    width: 100%;
+}
+
+.Select-control {
+    background-color: #042A53;
+    border: 1px solid #042A53;
+    color: #03acca;
+    width: 70%;
+}
+
+.Select-arrow-zone {
+    background-color: #042A53;
+    border: 1px solid #042A53;
+    color: #03acca;
+    /* width: 30%; */
+}
+
+.Select-input {
+    /* border: 1px solid #33ffe6; */
+    background-color: #042A53;
+    color: #03acca;
+    width: 100%;
+}
+
+.button_predict {
+    background-color: #042A53;
+    border: 1px solid #042A53;
+    color: #03acca;
+    width: 100%;
+}
+
+.button_predict:hover {
+    background-color: #33ffe6;
+    border: 1px solid #33ffe6;
+    color: #042A53;
+}
+
+.button_predict:focus {
+    background-color: #33ffe6;
+    border: 1px solid #33ffe6;
+    color: #042A53;
+}
+
+.button_predict:active {
+    background-color: #33ffe6;
+    border: 1px solid #33ffe6;
+    color: #042A53;
+}
+
+.button_predict:disabled {
+    background-color: #042A53;
+    border: 1px solid #042A53;
+    color: #03acca;
+}
+
+.button_predict */ #config_card {
     position: relative;
     display: flex;
     flex-direction: column;

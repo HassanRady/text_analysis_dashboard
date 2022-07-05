@@ -1,4 +1,3 @@
-import time
 
 from tabs import *
 from utils import *
@@ -21,9 +20,7 @@ streamer_api = StreamerApiClient()
 model_api = ModelApiClient()
 emotion_api = EmotionApiClient()
 
-df = pd.read_json(streamer_api.get_offline_tweets())[
-    ['text', 'name', 'screen_name', 'location', 'topic', 'user_id']][:1000]
-df_show = df.copy().drop(columns=['user_id'])
+df = pd.read_json(streamer_api.get_offline_tweets())[:]
 
 
 @app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
@@ -43,7 +40,7 @@ card_count_tweets = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.P(children=f"{df_show.shape[0]}", id="tweets_count",
+                html.P(children=f"{df.shape[0]}", id="tweets_count",
                        className="h2 font-weight-bold mb-0",
                        ),
                 html.H6("No. of Tweets",
@@ -59,7 +56,7 @@ card_users = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.P(children=f"{df['user_id'].nunique()}", id="users_count",
+                html.P(children=f"{df['author_id'].nunique()}", id="users_count",
                        className="h2 font-weight-bold mb-0",
                        ),
                 html.H6("No. of Users",
@@ -75,7 +72,7 @@ card_positives = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.P(f"{df['user_id'].nunique()}", id="positives_count",
+                html.P(f"{df['author_id'].nunique()}", id="positives_count",
                        className="h2 font-weight-bold mb-0",
                        ),
                 html.H6("No. of positive users",
@@ -91,7 +88,7 @@ card_negatives = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.P(f"{df['user_id'].nunique()}", id="negatives_count",
+                html.P(f"{df['author_id'].nunique()}", id="negatives_count",
                        className="h2 font-weight-bold mb-0",
                        ),
                 html.H6("No. of negative users",
@@ -105,35 +102,41 @@ card_negatives = dbc.Card(
 
 trending_countries = {'United States': '23424977',
                       'United Kingdom': '23424975', 'Canada': '23424775', }
-dropdown_trending_countries = dcc.Dropdown(
-    id='dropdown-trending-countries', options=[{'label': k, 'value': v} for k, v in trending_countries.items()], value='23424977', style={'width': '70%'}, clearable=False)
+trending_countries = [dbc.Label("Select Country:", style={
+    'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}), dcc.Dropdown(
+    id='trending_countries', options=[{'label': k, 'value': v} for k, v in trending_countries.items()], value='23424977', style={'width': '70%'}, clearable=False, className="")]
 
-button_refresh_predict = dbc.Button("Predict", id="button-refresh-predict", className="",
-                                    style={'width': '20%', 'font-size': '100%'}, color="dark",)
+
+button_refresh_predict = html.Div([dbc.Button("Predict", id="button-refresh-predict", className="button_predict",
+                                    style={'width': '20%', 'font-size': '100%'}, )])
+refresh_predict = [html.Br(), dbc.Label("Make Prediction:", style={
+    'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}), button_refresh_predict]
+
 refresh_predict_spinner = dbc.Spinner(
     size="lg", color="light", type="border", fullscreen=False,)
 
-refresh_rate = [dbc.Label("Refresh rate:", style={
+refresh_rate = [html.Br(), dbc.Label("Refresh rate (sec):", style={
     'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
     dcc.Slider(
     id="refresh_rate",
     min=2,
     max=100,
     value=5,
-    className="",
+    marks=None,
+    className="", tooltip={"placement": "bottom", "always_visible": True},
 ), ]
 
-stream_search = [dbc.Label("Topic to search:", style={
+stream_search = [html.Br(), dbc.Label("Topic to search:", style={
     'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
     dbc.Input(id="topic-input", type="text", placeholder="Enter topic",
               className="", style={'width': '40%'}),
     dbc.Button(children="Search",
-               id="button-stream", color="primary",), ]
+               id="button-stream", className="button_predict", style={'width': '20%', 'font-size': '100%'}, )]
 
 config_card = dbc.Card([
     dbc.CardHeader("Configure Dashboard", className="card-header"),
-    dbc.CardBody([dropdown_trending_countries,
-                  button_refresh_predict,
+    dbc.CardBody([*trending_countries,
+                  *refresh_predict,
                   *refresh_rate,
                   *stream_search,
                   ]),
@@ -156,14 +159,13 @@ tab_positive_word_count = dbc.Tab(
 tab_negative_word_cloud = dbc.Tab(
     label="Negative Word Cloud", tab_id="tab-negative-word-cloud", style={}, labelClassName="w-100")
 tab_negative_word_count = dbc.Tab(
-    label="Negative Word Count", tab_id="tab-negative-word-count",  style={})
+    label="Negative Word Count", tab_id="tab-negative-word-count", )
 
 positive_tabs = html.Div(dbc.Tabs(
-    [tab_positive_word_cloud, tab_positive_word_count], id="positive_tab", active_tab='tab-positive-word-cloud', style={'background-color': "#1D262F"})
-)
+    [tab_positive_word_cloud, tab_positive_word_count], id="positive_tab", active_tab='tab-positive-word-cloud', style={'background-color': "#1D262F"}), )
 
 negative_tabs = html.Div(dbc.Tabs(
-    [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},), className="")
+    [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},), )
 
 
 store_stream_data = dcc.Store(id='store-stream-data', storage_type='memory')
@@ -270,7 +272,7 @@ def update_stream_data(n, n_clicks):
         raise dash.exceptions.PreventUpdate
     isStreaming = n_clicks % 2 == 1
     if isStreaming:
-        return streamer_api.get_tweets(wait=0)
+        return streamer_api.get_tweets()
     else:
         raise dash.exceptions.PreventUpdate
 
@@ -281,10 +283,10 @@ def update_stream_data(n, n_clicks):
     [Input('store-stream-data', 'data')])
 def update_count(data):
     df_stream = pd.read_json(data)
-    return [str(df_stream.shape[0]), str(df_stream['user_id'].nunique())]
+    return [str(df_stream.shape[0]), str(df_stream['author_id'].nunique())]
 
 
-@app.callback(Output('trend_graph', 'figure'),  [Input("dropdown-trending-countries", "value"), State('dropdown-trending-countries', 'options')])
+@app.callback(Output('trend_graph', 'figure'),  [Input("trending_countries", "value"), State('trending_countries', 'options')])
 def trend_graph(value, options):
     label = [x['label'] for x in options if x['value'] == value][0]
     df_trends = get_trends(value)
@@ -327,9 +329,6 @@ def make_prediction(refresh_button_clicks, data, stream_button_clicks):
 
 @app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False)
 def make_sentiment_graph(data, ):
-    # fired_callback_id = ctx.triggered_id
-    # if fired_callback_id == 'button-refresh-predict.n_clicks':
-
     sentiment_count = get_label_count(data)
     return get_sentiment_graph(sentiment_count)
 
@@ -358,7 +357,6 @@ def switch_negative_tab(active_tab):
 def switch_positive_tab(active_tab):
     if active_tab == "tab-positive-word-cloud":
         return layout_positive_wordcloud
-        # return refresh_predict_spinner
     elif active_tab == "tab-positive-word-count":
         return layout_grapth_positive_word_count
 
