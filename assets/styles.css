@@ -4786,7 +4786,8 @@ input[type="button"].btn-block {
     background-color: #042A53;
     border: 1px solid #042A53;
     color: #03acca;
-    width: 100%;
+    width: 30%;
+    font-size: 100%;
 }
 
 .button_predict:hover {
@@ -4824,6 +4825,28 @@ input[type="button"].btn-block {
     border: 1px solid rgba(0, 0, 0, 0.05);
     border-radius: 1rem;
     margin: 10px;
+}
+
+.topic_input {
+    width: 100%;
+    border: 1px solid #03acca;
+    border-radius: 5px;
+    background-color: #1D262F;
+    color: #03acca;
+}
+
+.topic_input:focus {
+    border: 1px solid #33ffe6;
+    background-color: #1D262F;
+    ;
+}
+
+.topic_input:hover {
+    border: 1px solid #33ffe6;
+}
+
+.topic_input:active {
+    border: 1px solid #33ffe6;
 }
 
 #config_text {

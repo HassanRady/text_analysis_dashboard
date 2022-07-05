@@ -20,7 +20,7 @@ streamer_api = StreamerApiClient()
 model_api = ModelApiClient()
 emotion_api = EmotionApiClient()
 
-df = pd.read_json(streamer_api.get_offline_tweets())[:]
+df = pd.read_json(streamer_api.get_offline_tweets())[:1000]
 
 
 @app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
@@ -72,7 +72,7 @@ card_positives = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.P(f"{df['author_id'].nunique()}", id="positives_count",
+                html.P(children=f"--", id="positives_count",
                        className="h2 font-weight-bold mb-0",
                        ),
                 html.H6("No. of positive users",
@@ -88,7 +88,7 @@ card_negatives = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.P(f"{df['author_id'].nunique()}", id="negatives_count",
+                html.P(children=f"--", id="negatives_count",
                        className="h2 font-weight-bold mb-0",
                        ),
                 html.H6("No. of negative users",
@@ -107,8 +107,7 @@ trending_countries = [dbc.Label("Select Country:", style={
     id='trending_countries', options=[{'label': k, 'value': v} for k, v in trending_countries.items()], value='23424977', style={'width': '70%'}, clearable=False, className="")]
 
 
-button_refresh_predict = html.Div([dbc.Button("Predict", id="button-refresh-predict", className="button_predict",
-                                    style={'width': '20%', 'font-size': '100%'}, )])
+button_refresh_predict = html.Div([dbc.Button("Predict", id="button-refresh-predict", className="button_predict", )])
 refresh_predict = [html.Br(), dbc.Label("Make Prediction:", style={
     'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}), button_refresh_predict]
 
@@ -129,7 +128,7 @@ refresh_rate = [html.Br(), dbc.Label("Refresh rate (sec):", style={
 stream_search = [html.Br(), dbc.Label("Topic to search:", style={
     'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
     dbc.Input(id="topic-input", type="text", placeholder="Enter topic",
-              className="", style={'width': '40%'}),
+              className="topic_input", style={'width': '40%'}),
     dbc.Button(children="Search",
                id="button-stream", className="button_predict", style={'width': '20%', 'font-size': '100%'}, )]
 
@@ -285,6 +284,15 @@ def update_count(data):
     df_stream = pd.read_json(data)
     return [str(df_stream.shape[0]), str(df_stream['author_id'].nunique())]
 
+@app.callback([
+    Output("positives_count", 'children'), Output('negatives_count', 'children'),
+],
+    [Input('store-sentiment-prediction', 'data')])
+def update_positive_negative_user(data):
+    df_sentiment = pd.DataFrame(data)
+    df_positive = df_sentiment[df_sentiment['label'] == 'POSITIVE']
+    df_negative = df_sentiment[df_sentiment['label'] == 'NEGATIVE']
+    return [df_positive['author_id'].nunique(), df_negative['author_id'].nunique()]
 
 @app.callback(Output('trend_graph', 'figure'),  [Input("trending_countries", "value"), State('trending_countries', 'options')])
 def trend_graph(value, options):
@@ -299,9 +307,9 @@ def make_prediction(refresh_button_clicks, data, stream_button_clicks):
         if not refresh_button_clicks:
             df_offline_tweets = df
             df_sentiment = form_sntiment_prediction_df(
-                model_api.predict(df_offline_tweets['text']))
+                model_api.predict(df_offline_tweets))
             df_emotion = form_emotion_prediction_df(
-                emotion_api.predict(df_offline_tweets['text']))
+                emotion_api.predict(df_offline_tweets))
             return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), refresh_button_clicks]
         else:
             raise dash.exceptions.PreventUpdate
@@ -311,17 +319,17 @@ def make_prediction(refresh_button_clicks, data, stream_button_clicks):
             n_clicks = 0
             df_stream = pd.read_json(data)
             df_sentiment = form_sntiment_prediction_df(
-                model_api.predict(df_stream['text']))
+                model_api.predict(df_stream))
             df_emotion = form_emotion_prediction_df(
-                emotion_api.predict(df_stream['text']))
+                emotion_api.predict(df_stream))
             return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), n_clicks]
         else:
             if refresh_button_clicks == 1:
                 df_stream = pd.read_json(data)
                 df_sentiment = form_sntiment_prediction_df(
-                    model_api.predict(df_stream['text']))
+                    model_api.predict(df_stream))
                 df_emotion = form_emotion_prediction_df(
-                    emotion_api.predict(df_offline_tweets['text']))
+                    emotion_api.predict(df_stream))
                 return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), refresh_button_clicks]
             else:
                 raise dash.exceptions.PreventUpdate
