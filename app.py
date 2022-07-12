@@ -6,7 +6,7 @@ import dash
 from dash.dependencies import Input, Output, State
 from dash import html, dcc, ctx
 from streamApi import StreamerApiClient
-from sentiment_api import ModelApiClient
+from Models.sentiment_api import ModelApiClient
 import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
