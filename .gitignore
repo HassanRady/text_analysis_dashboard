@@ -197,6 +197,6 @@ checkpoint/
 test2.py
 
 .vscode/
-*.png
+# *.png
 *.csv
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
