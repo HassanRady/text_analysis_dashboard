@@ -2,8 +2,6 @@
 # Python program to generate WordCloud
 
 # importing all necessary modules
-from cmath import e
-from tkinter import N
 from wordcloud import WordCloud, STOPWORDS
 import pandas as pd
 from PIL import Image

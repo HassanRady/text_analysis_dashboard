@@ -9,7 +9,6 @@ from dash import html, dcc, dash_table
 import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
-from main import app
 from plotly import graph_objs as go
 from main import app
 

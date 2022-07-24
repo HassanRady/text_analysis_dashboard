@@ -1,12 +1,11 @@
 import pandas as pd
-from streamApi import StreamerApiClient
 from collections import Counter
+from api_callbacks import APICallbacks
 
-streamer_api = StreamerApiClient()
-
+api_services = APICallbacks()
 
 def get_trends(value):
-    df_trends = pd.read_json(streamer_api.get_trending_hashtags(int(value)))
+    df_trends = pd.read_json(api_services.get_trending_hashtags(int(value)))
     df_trends = df_trends[['name', 'tweet_volume']]
     df_trends = df_trends.sort_values(by='tweet_volume', ascending=False)
     df_trends = df_trends.head(10)
