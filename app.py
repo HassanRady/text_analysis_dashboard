@@ -1,26 +1,20 @@
-
 from tabs import *
 from utils import *
 from graphs import *
 import dash
 from dash.dependencies import Input, Output, State
-from dash import html, dcc, ctx
-from streamApi import StreamerApiClient
-from Models.sentiment_api import ModelApiClient
+from dash import html, dcc
 import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
 from main import app
-from Models.keyword_extraction_api import *
-from Models.NER_api import *
-from Models.emotion_api import *
+from api_callbacks import APICallbacks
+from redis_handler import RedisClient
 
+api_services = APICallbacks()
+rc = RedisClient()
 
-streamer_api = StreamerApiClient()
-model_api = ModelApiClient()
-emotion_api = EmotionApiClient()
-
-df = pd.read_json(streamer_api.get_offline_tweets())[:1000]
+df = pd.read_json(api_services.get_offline_tweets())[:1000]
 
 
 @app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
@@ -45,7 +39,6 @@ card_count_tweets = dbc.Card(
                        ),
                 html.H6("No. of Tweets",
                         className="card-title text-uppercase text-muted mb-0"),
-
             ]
         ),
     ],
@@ -107,7 +100,8 @@ trending_countries = [dbc.Label("Select Country:", style={
     id='trending_countries', options=[{'label': k, 'value': v} for k, v in trending_countries.items()], value='23424977', style={'width': '70%'}, clearable=False, className="")]
 
 
-button_refresh_predict = html.Div([dbc.Button("Predict", id="button-refresh-predict", className="button_predict", )])
+button_refresh_predict = html.Div(
+    [dbc.Button("Predict", id="button-refresh-predict", className="button_predict", )])
 refresh_predict = [html.Br(), dbc.Label("Make Prediction:", style={
     'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}), button_refresh_predict]
 
@@ -258,10 +252,10 @@ def start_stream(n, topic):
     if not topic:
         raise dash.exceptions.PreventUpdate
     if n % 2 == 1:
-        streamer_api.start_stream(topic)
+        api_services.start_stream(topic)
         return ["Stop"]
     else:
-        streamer_api.stop_stream()
+        api_services.stop_stream()
         return ["Start"]
 
 
@@ -271,7 +265,7 @@ def update_stream_data(n, n_clicks):
         raise dash.exceptions.PreventUpdate
     isStreaming = n_clicks % 2 == 1
     if isStreaming:
-        return streamer_api.get_tweets()
+        return rc.get_stream_data()
     else:
         raise dash.exceptions.PreventUpdate
 
@@ -284,8 +278,10 @@ def update_count(data):
     df_stream = pd.read_json(data)
     return [str(df_stream.shape[0]), str(df_stream['author_id'].nunique())]
 
+
 @app.callback([
-    Output("positives_count", 'children'), Output('negatives_count', 'children'),
+    Output("positives_count", 'children'), Output(
+        'negatives_count', 'children'),
 ],
     [Input('store-sentiment-prediction', 'data')])
 def update_positive_negative_user(data):
@@ -293,6 +289,7 @@ def update_positive_negative_user(data):
     df_positive = df_sentiment[df_sentiment['label'] == 'POSITIVE']
     df_negative = df_sentiment[df_sentiment['label'] == 'NEGATIVE']
     return [df_positive['author_id'].nunique(), df_negative['author_id'].nunique()]
+
 
 @app.callback(Output('trend_graph', 'figure'),  [Input("trending_countries", "value"), State('trending_countries', 'options')])
 def trend_graph(value, options):
@@ -307,9 +304,9 @@ def make_prediction(refresh_button_clicks, data, stream_button_clicks):
         if not refresh_button_clicks:
             df_offline_tweets = df
             df_sentiment = form_sntiment_prediction_df(
-                model_api.predict(df_offline_tweets))
+                api_services.predict_sentiment(df_offline_tweets))
             df_emotion = form_emotion_prediction_df(
-                emotion_api.predict(df_offline_tweets))
+                api_services.predict_emotion(df_offline_tweets))
             return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), refresh_button_clicks]
         else:
             raise dash.exceptions.PreventUpdate
@@ -319,17 +316,17 @@ def make_prediction(refresh_button_clicks, data, stream_button_clicks):
             n_clicks = 0
             df_stream = pd.read_json(data)
             df_sentiment = form_sntiment_prediction_df(
-                model_api.predict(df_stream))
+                api_services.predict_sentiment(df_stream))
             df_emotion = form_emotion_prediction_df(
-                emotion_api.predict(df_stream))
+                api_services.predict_emotion(df_stream))
             return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), n_clicks]
         else:
             if refresh_button_clicks == 1:
                 df_stream = pd.read_json(data)
                 df_sentiment = form_sntiment_prediction_df(
-                    model_api.predict(df_stream))
+                    api_services.predict_sentiment(df_stream))
                 df_emotion = form_emotion_prediction_df(
-                    emotion_api.predict(df_stream))
+                    api_services.predict_emotion(df_stream))
                 return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), refresh_button_clicks]
             else:
                 raise dash.exceptions.PreventUpdate
@@ -376,7 +373,7 @@ def get_keywords(data, stream_button_clicks):
     else:
         df_stream = pd.read_json(data)
     img = BytesIO()
-    keywords = extract_keywords(df_stream['text'])['keywords']
+    keywords = api_services.extract_keywords(df_stream['text'])['keywords']
     make_wordcloud(" ".join(keywords), 810, 500).save(img, format='PNG')
     return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
@@ -388,7 +385,7 @@ def get_ents(data, stream_button_clicks):
     else:
         df_stream = pd.read_json(data)
     img = BytesIO()
-    ents = get_ner(df_stream['text'])['entities']
+    ents = api_services.get_ner(df_stream['text'])['entities']
     make_wordcloud(" ".join(ents), 810, 500).save(img, format='PNG')
     return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
