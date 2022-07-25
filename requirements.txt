@@ -4,3 +4,4 @@ Pandas
 Plotly
 requests
 wordcloud
+redis

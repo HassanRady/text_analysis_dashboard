@@ -3,7 +3,7 @@ from utils import *
 from graphs import *
 import dash
 from dash.dependencies import Input, Output, State
-from dash import html, dcc
+from dash import html, dcc, ctx
 import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
@@ -25,7 +25,7 @@ def set_interval(v):
 interval = dcc.Interval(
     id='my_interval',
     disabled=False,
-    interval=1000*6,
+    interval=1000*5,
     n_intervals=0,
     max_intervals=-1,
 )
@@ -273,9 +273,9 @@ def update_stream_data(n, n_clicks):
 @app.callback([
     Output("tweets_count", 'children'), Output('users_count', 'children'),
 ],
-    [Input('store-stream-data', 'data')])
-def update_count(data):
-    df_stream = pd.read_json(data)
+    [Input('my_interval', 'n_intervals')])
+def update_count(n):
+    df_stream = rc.get_stream_data()
     return [str(df_stream.shape[0]), str(df_stream['author_id'].nunique())]
 
 
@@ -366,24 +366,32 @@ def switch_positive_tab(active_tab):
         return layout_grapth_positive_word_count
 
 
-@app.callback(Output('keywords-wordcloud', 'src'), Input('store-stream-data', 'data'), Input('button-stream', 'n_clicks'))
-def get_keywords(data, stream_button_clicks):
+@app.callback(Output('keywords-wordcloud', 'src'), Input('my_interval', 'n_intervals'), Input('button-stream', 'n_clicks'))
+def get_keywords(n, stream_button_clicks):
     if not stream_button_clicks:
         df_stream = df
     else:
-        df_stream = pd.read_json(data)
+        isStreaming = stream_button_clicks % 2 == 1
+        if not isStreaming:
+            raise dash.exceptions.PreventUpdate
+    df_stream = rc.get_stream_data()
     img = BytesIO()
     keywords = api_services.extract_keywords(df_stream['text'])['keywords']
     make_wordcloud(" ".join(keywords), 810, 500).save(img, format='PNG')
     return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
 
-@app.callback(Output('ner-wordcloud', 'src'), Input('store-stream-data', 'data'), Input('button-stream', 'n_clicks'))
-def get_ents(data, stream_button_clicks):
+@app.callback(Output('ner-wordcloud', 'src'), Input('my_interval', 'n_intervals'), Input('button-stream', 'n_clicks'))
+def get_ents(n, stream_button_clicks):
+    trigger = ctx.triggered_id
     if not stream_button_clicks:
         df_stream = df
     else:
-        df_stream = pd.read_json(data)
+        isStreaming = stream_button_clicks % 2 == 1
+        if not isStreaming:
+            raise dash.exceptions.PreventUpdate
+    print(trigger)
+    df_stream = rc.get_stream_data()
     img = BytesIO()
     ents = api_services.get_ner(df_stream['text'])['entities']
     make_wordcloud(" ".join(ents), 810, 500).save(img, format='PNG')
@@ -391,4 +399,4 @@ def get_ents(data, stream_button_clicks):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port='7020')
+    app.run_server(debug=True, port='7020', host='0.0.0.0')

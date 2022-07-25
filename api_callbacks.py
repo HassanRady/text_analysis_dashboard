@@ -41,7 +41,7 @@ class APICallbacks:
     def start_stream(self, topic):
         def _start_stream(topic):
             s = requests.get(
-                f"{TWITTER_HANDLER_API_URL}/start_stream", params={"topic": topic})
+                f"{TWITTER_HANDLER_API_URL}/start_stream", params={"query": topic})
             s2 = requests.get(
             f"{SPARK_STREAM_API_URL}/start", params={"topic": topic})
         _start_stream(topic)
@@ -60,14 +60,14 @@ class APICallbacks:
         response = requests.get(f"{TRENDING_HASHTAGS_SERVICE_URL}/trending_hashtags", params={f'WOEID': WOEID})
         return response.json()
 
-    def get_ner(text):
+    def get_ner(self, text):
         url = f"{NAMED_ENTITY_RECOGNITION_SERVICE_URL}/ner"
         field = 'text'
         body  = {field: text.tolist()}
         response = requests.post(url=url, json=body)
         return response.json()
 
-    def extract_keywords(text):
+    def extract_keywords(self, text):
         url = f"{KEYWORD_EXTRACTION_SERVICE_URL}/extract"
         field = 'text'
         body  = {field: text.tolist()}
