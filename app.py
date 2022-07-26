@@ -10,9 +10,12 @@ from functions import *
 from main import app
 from api_callbacks import APICallbacks
 from redis_handler import RedisClient
+import logger
+
+_logger = logger.get_logger(__name__)
 
 api_services = APICallbacks()
-rc = RedisClient()
+redis_client = RedisClient()
 
 df = pd.read_json(api_services.get_offline_tweets())[:1000]
 
@@ -253,9 +256,11 @@ def start_stream(n, topic):
         raise dash.exceptions.PreventUpdate
     if n % 2 == 1:
         api_services.start_stream(topic)
+        redis_client.set_key('stream', 1)
         return ["Stop"]
     else:
         api_services.stop_stream()
+        redis_client.set_key('stream', 0)
         return ["Start"]
 
 
@@ -265,7 +270,7 @@ def update_stream_data(n, n_clicks):
         raise dash.exceptions.PreventUpdate
     isStreaming = n_clicks % 2 == 1
     if isStreaming:
-        return rc.get_stream_data()
+        return redis_client.get_stream_data().to_json()
     else:
         raise dash.exceptions.PreventUpdate
 
@@ -275,7 +280,7 @@ def update_stream_data(n, n_clicks):
 ],
     [Input('my_interval', 'n_intervals')])
 def update_count(n):
-    df_stream = rc.get_stream_data()
+    df_stream = redis_client.get_stream_data()
     return [str(df_stream.shape[0]), str(df_stream['author_id'].nunique())]
 
 
@@ -366,37 +371,72 @@ def switch_positive_tab(active_tab):
         return layout_grapth_positive_word_count
 
 
-@app.callback(Output('keywords-wordcloud', 'src'), Input('my_interval', 'n_intervals'), Input('button-stream', 'n_clicks'))
-def get_keywords(n, stream_button_clicks):
-    if not stream_button_clicks:
-        df_stream = df
-    else:
-        isStreaming = stream_button_clicks % 2 == 1
-        if not isStreaming:
-            raise dash.exceptions.PreventUpdate
-    df_stream = rc.get_stream_data()
-    img = BytesIO()
-    keywords = api_services.extract_keywords(df_stream['text'])['keywords']
-    make_wordcloud(" ".join(keywords), 810, 500).save(img, format='PNG')
-    return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
+@app.callback(Output('keywords-wordcloud', 'src'), Input('my_interval', 'n_intervals'),)
+def get_keywords(n, ):
+    def _make_wordcloud(df):
+        kers = api_services.extract_keywords(df['text'])['keywords']
+        img = BytesIO()
+        make_wordcloud(" ".join(kers), 810, 500).save(img, format='PNG')
+        return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
-
-@app.callback(Output('ner-wordcloud', 'src'), Input('my_interval', 'n_intervals'), Input('button-stream', 'n_clicks'))
-def get_ents(n, stream_button_clicks):
     trigger = ctx.triggered_id
-    if not stream_button_clicks:
+    if trigger is None:
+        redis_client.delete_key("ker_status")
+
+    ker_status = redis_client.get_key("ker_status")
+    isStreaming = int(redis_client.get_key("stream"))
+    if ker_status is None:
         df_stream = df
-    else:
-        isStreaming = stream_button_clicks % 2 == 1
-        if not isStreaming:
-            raise dash.exceptions.PreventUpdate
-    print(trigger)
-    df_stream = rc.get_stream_data()
-    img = BytesIO()
-    ents = api_services.get_ner(df_stream['text'])['entities']
-    make_wordcloud(" ".join(ents), 810, 500).save(img, format='PNG')
-    return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
+        redis_client.set_key("ker_status", "offline")
+        return _make_wordcloud(df_stream)
+    elif ker_status == "offline" and not isStreaming:
+        raise dash.exceptions.PreventUpdate
+    elif ker_status == "offline" and isStreaming:
+        df_stream = redis_client.get_stream_data()
+        redis_client.set_key("ker_status", "stream")
+        return _make_wordcloud(df_stream)
+    elif ker_status == "stream" and isStreaming:
+        df_stream = redis_client.get_stream_data()
+        return _make_wordcloud(df_stream)
+    elif ker_status == "stream" and not isStreaming:
+        df_stream = redis_client.get_stream_data()
+        redis_client.set_key("ker_status", "offline")
+        return _make_wordcloud(df_stream)
+
+
+@app.callback(Output('ner-wordcloud', 'src'), Input('my_interval', 'n_intervals'),)
+def get_ents(n):
+    def _make_wordcloud(df):
+        ents = api_services.get_ner(df['text'])['entities']
+        img = BytesIO()
+        make_wordcloud(" ".join(ents), 810, 500).save(img, format='PNG')
+        return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
+
+    trigger = ctx.triggered_id
+    if trigger is None:
+        redis_client.delete_key("ner_status")
+
+    ner_status = redis_client.get_key("ner_status")
+    isStreaming = int(redis_client.get_key("stream"))
+    if ner_status is None:
+        df_stream = df
+        redis_client.set_key("ner_status", "offline")
+        return _make_wordcloud(df_stream)
+    elif ner_status == "offline" and not isStreaming:
+        raise dash.exceptions.PreventUpdate
+    elif ner_status == "offline" and isStreaming:
+        df_stream = redis_client.get_stream_data()
+        redis_client.set_key("ner_status", "stream")
+        return _make_wordcloud(df_stream)
+    elif ner_status == "stream" and isStreaming:
+        df_stream = redis_client.get_stream_data()
+        return _make_wordcloud(df_stream)
+    elif ner_status == "stream" and not isStreaming:
+        df_stream = redis_client.get_stream_data()
+        redis_client.set_key("ner_status", "offline")
+        return _make_wordcloud(df_stream)
+    
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port='7020', host='0.0.0.0')
+    app.run_server(debug=True, port='7020', host='0.0.0.0', dev_tools_prune_errors=True)
