@@ -1,3 +1,4 @@
+import time
 from tabs import *
 from utils import *
 from graphs import *
@@ -8,17 +9,19 @@ import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
 from main import app
-from api_callbacks import APICallbacks
+from api_calls import API
 from redis_handler import RedisClient
 import logger
 
 _logger = logger.get_logger(__name__)
 
-api_services = APICallbacks()
+api_services = API()
 redis_client = RedisClient()
 
 df = pd.read_json(api_services.get_offline_tweets())[:1000]
-
+redis_client.set_key("first_open", 1)
+redis_client.set_key("stream", 0)
+redis_client.set_key("topic", "")
 
 @app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
 def set_interval(v):
@@ -164,7 +167,6 @@ negative_tabs = html.Div(dbc.Tabs(
     [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},), )
 
 
-store_stream_data = dcc.Store(id='store-stream-data', storage_type='memory')
 store_sentiment_prediction = dcc.Store(
     id='store-sentiment-prediction', storage_type='memory')
 store_emotion_prediction = dcc.Store(
@@ -195,7 +197,7 @@ card_ner_word_cloud = dbc.Card([
     className="card shadow",)
 
 app.layout = html.Div(
-    [interval, store_stream_data, store_sentiment_prediction, store_emotion_prediction,
+    [interval, store_sentiment_prediction, store_emotion_prediction,
 
         dbc.Row([
             dbc.Col(config_card, width=4),
@@ -257,6 +259,11 @@ def start_stream(n, topic):
     if n % 2 == 1:
         api_services.start_stream(topic)
         redis_client.set_key('stream', 1)
+        redis_client.set_key('isStreamed', 1)
+        if topic != redis_client.get_key('topic') and topic != '':
+            redis_client.delete_stream_data()
+        redis_client.set_key('topic', topic)
+        time.sleep(3)
         return ["Stop"]
     else:
         api_services.stop_stream()
@@ -264,23 +271,16 @@ def start_stream(n, topic):
         return ["Start"]
 
 
-@app.callback(Output('store-stream-data', 'data'), [Input('my_interval', 'n_intervals'), State('button-stream', 'n_clicks')])
-def update_stream_data(n, n_clicks):
-    if not n_clicks:
-        raise dash.exceptions.PreventUpdate
-    isStreaming = n_clicks % 2 == 1
-    if isStreaming:
-        return redis_client.get_stream_data().to_json()
-    else:
-        raise dash.exceptions.PreventUpdate
-
-
 @app.callback([
     Output("tweets_count", 'children'), Output('users_count', 'children'),
 ],
     [Input('my_interval', 'n_intervals')])
 def update_count(n):
-    df_stream = redis_client.get_stream_data()
+    isStreamed = redis_client.get_key("isStreamed") is not None
+    if isStreamed:
+        df_stream = redis_client.get_stream_data()
+    else:
+        df_stream = df
     return [str(df_stream.shape[0]), str(df_stream['author_id'].nunique())]
 
 
@@ -303,38 +303,36 @@ def trend_graph(value, options):
     return get_trends_graph(df_trends, label)
 
 
-@app.callback([Output('store-sentiment-prediction', 'data'), Output('store-emotion-prediction', 'data'), Output('button-refresh-predict', 'n_clicks')],  [Input('button-refresh-predict', 'n_clicks')], [State('store-stream-data', 'data'), State('button-stream', 'n_clicks')], prevent_initial_call=False)
-def make_prediction(refresh_button_clicks, data, stream_button_clicks):
-    if not data:
-        if not refresh_button_clicks:
-            df_offline_tweets = df
-            df_sentiment = form_sntiment_prediction_df(
-                api_services.predict_sentiment(df_offline_tweets))
-            df_emotion = form_emotion_prediction_df(
-                api_services.predict_emotion(df_offline_tweets))
-            return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), refresh_button_clicks]
+@app.callback([Output('store-sentiment-prediction', 'data'), Output('store-emotion-prediction', 'data'), Output('button-refresh-predict', 'n_clicks')],  [Input('button-refresh-predict', 'n_clicks')], prevent_initial_call=False)
+def make_prediction(refresh_button_clicks, ):
+    def _make_prediction(n, df):
+        df_sentiment = form_sntiment_prediction_df(
+            api_services.predict_sentiment(df))
+        df_emotion = form_emotion_prediction_df(
+            api_services.predict_emotion(df))
+        return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), n]
+
+    isRefreshed = ctx.triggered_id is None
+    isStreamed = redis_client.get_key("isStreamed") is not None
+    isStreaming = int(redis_client.get_key("stream"))
+    isUpdated = refresh_button_clicks is not None
+
+    if isRefreshed and not isStreamed:
+        df_stream = df
+        return _make_prediction(refresh_button_clicks, df_stream)
+    elif isRefreshed and isStreamed:
+        df_stream = redis_client.get_stream_data()
+        return _make_prediction(refresh_button_clicks, df_stream)
+    elif isStreaming:
+        n_clicks = 0
+        df_stream = redis_client.get_stream_data()
+        return _make_prediction(n_clicks, df_stream)
+    elif not isStreaming:
+        if refresh_button_clicks == 1:
+            df_stream = redis_client.get_stream_data()
+            return _make_prediction(refresh_button_clicks, df_stream)
         else:
             raise dash.exceptions.PreventUpdate
-    else:
-        isStreaming = stream_button_clicks % 2 == 1
-        if isStreaming:
-            n_clicks = 0
-            df_stream = pd.read_json(data)
-            df_sentiment = form_sntiment_prediction_df(
-                api_services.predict_sentiment(df_stream))
-            df_emotion = form_emotion_prediction_df(
-                api_services.predict_emotion(df_stream))
-            return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), n_clicks]
-        else:
-            if refresh_button_clicks == 1:
-                df_stream = pd.read_json(data)
-                df_sentiment = form_sntiment_prediction_df(
-                    api_services.predict_sentiment(df_stream))
-                df_emotion = form_emotion_prediction_df(
-                    api_services.predict_emotion(df_stream))
-                return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), refresh_button_clicks]
-            else:
-                raise dash.exceptions.PreventUpdate
 
 
 @app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False)
@@ -379,28 +377,21 @@ def get_keywords(n, ):
         make_wordcloud(" ".join(kers), 810, 500).save(img, format='PNG')
         return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
-    trigger = ctx.triggered_id
-    if trigger is None:
-        redis_client.delete_key("ker_status")
-
-    ker_status = redis_client.get_key("ker_status")
+    isRefreshed = ctx.triggered_id is None
+    isUpdated = ctx.triggered_id == "my_interval"
     isStreaming = int(redis_client.get_key("stream"))
-    if ker_status is None:
+    isStreamed = redis_client.get_key("isStreamed") is not None
+
+    if isRefreshed and not isStreamed:
         df_stream = df
-        redis_client.set_key("ker_status", "offline")
         return _make_wordcloud(df_stream)
-    elif ker_status == "offline" and not isStreaming:
+    elif isRefreshed and isStreamed:
+        df_stream = redis_client.get_stream_data()
+        return _make_wordcloud(df_stream)
+    elif isUpdated and not isStreaming:
         raise dash.exceptions.PreventUpdate
-    elif ker_status == "offline" and isStreaming:
+    elif isUpdated and isStreaming:
         df_stream = redis_client.get_stream_data()
-        redis_client.set_key("ker_status", "stream")
-        return _make_wordcloud(df_stream)
-    elif ker_status == "stream" and isStreaming:
-        df_stream = redis_client.get_stream_data()
-        return _make_wordcloud(df_stream)
-    elif ker_status == "stream" and not isStreaming:
-        df_stream = redis_client.get_stream_data()
-        redis_client.set_key("ker_status", "offline")
         return _make_wordcloud(df_stream)
 
 
@@ -412,30 +403,23 @@ def get_ents(n):
         make_wordcloud(" ".join(ents), 810, 500).save(img, format='PNG')
         return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
-    trigger = ctx.triggered_id
-    if trigger is None:
-        redis_client.delete_key("ner_status")
-
-    ner_status = redis_client.get_key("ner_status")
+    isRefreshed = ctx.triggered_id is None
+    isUpdated = ctx.triggered_id == "my_interval"
     isStreaming = int(redis_client.get_key("stream"))
-    if ner_status is None:
+    isStreamed = redis_client.get_key("isStreamed") is not None
+
+    if isRefreshed and not isStreamed:
         df_stream = df
-        redis_client.set_key("ner_status", "offline")
         return _make_wordcloud(df_stream)
-    elif ner_status == "offline" and not isStreaming:
+    elif isRefreshed and isStreamed:
+        df_stream = redis_client.get_stream_data()
+        return _make_wordcloud(df_stream)
+    elif isUpdated and not isStreaming:
         raise dash.exceptions.PreventUpdate
-    elif ner_status == "offline" and isStreaming:
-        df_stream = redis_client.get_stream_data()
-        redis_client.set_key("ner_status", "stream")
-        return _make_wordcloud(df_stream)
-    elif ner_status == "stream" and isStreaming:
+    elif isUpdated and isStreaming:
         df_stream = redis_client.get_stream_data()
         return _make_wordcloud(df_stream)
-    elif ner_status == "stream" and not isStreaming:
-        df_stream = redis_client.get_stream_data()
-        redis_client.set_key("ner_status", "offline")
-        return _make_wordcloud(df_stream)
-    
+
 
 
 if __name__ == '__main__':

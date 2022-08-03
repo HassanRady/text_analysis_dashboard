@@ -1,6 +1,10 @@
 import requests
 import os
 
+import logger
+
+_logger = logger.get_logger(__name__)
+
 CASSANDRA_READER_HOST = os.environ.get('CASSANDRA_READER_HOST', 'localhost')
 CASSANDRA_READER_PORT = os.environ.get('CASSANDRA_READER_PORT', '9042')
 CASSANDRA_READER_URL = f"http://{CASSANDRA_READER_HOST}:{CASSANDRA_READER_PORT}"
@@ -34,20 +38,20 @@ NAMED_ENTITY_RECOGNITION_SERVICE_PORT = os.environ.get('NAMED_ENTITY_RECOGNITION
 NAMED_ENTITY_RECOGNITION_SERVICE_URL = f"http://{NAMED_ENTITY_RECOGNITION_SERVICE_HOST}:{NAMED_ENTITY_RECOGNITION_SERVICE_PORT}"
 
 
-class APICallbacks:
+class API:
     def __init__(self):
         pass
 
     def start_stream(self, topic):
         def _start_stream(topic):
             s = requests.get(
-                f"{TWITTER_HANDLER_API_URL}/start_stream", params={"query": topic})
+                f"{TWITTER_HANDLER_API_URL}/start", params={"topic": topic})
             s2 = requests.get(
-            f"{SPARK_STREAM_API_URL}/start", params={"topic": topic})
+            f"{SPARK_STREAM_API_URL}/start")
         _start_stream(topic)
 
     def stop_stream(self):
-        response = requests.get(f"{TWITTER_HANDLER_API_URL}/stop_stream")
+        response = requests.get(f"{TWITTER_HANDLER_API_URL}/stop")
         response = requests.get(f"{SPARK_STREAM_API_URL}/stop")
         return response.text
 

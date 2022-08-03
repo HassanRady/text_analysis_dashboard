@@ -1,8 +1,7 @@
 import pandas as pd
-from collections import Counter
-from api_callbacks import APICallbacks
+from api_calls import API
 
-api_services = APICallbacks()
+api_services = API()
 
 def get_trends(value):
     df_trends = pd.read_json(api_services.get_trending_hashtags(int(value)))

@@ -79,3 +79,6 @@ def make_wordcloud(text, width=400, height=400, ):
     wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
                         max_words=1000, random_state=42, height=height, width=width,  colormap='tab20c',).generate(text)
     return wordcloud.to_image()
+
+
+# def check_empty(df):
