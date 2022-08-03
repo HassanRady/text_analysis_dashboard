@@ -105,7 +105,6 @@ trending_countries = [dbc.Label("Select Country:", style={
     'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}), dcc.Dropdown(
     id='trending_countries', options=[{'label': k, 'value': v} for k, v in trending_countries.items()], value='23424977', style={'width': '70%'}, clearable=False, className="")]
 
-
 button_refresh_predict = html.Div(
     [dbc.Button("Predict", id="button-refresh-predict", className="button_predict", )])
 refresh_predict = [html.Br(), dbc.Label("Make Prediction:", style={
@@ -132,10 +131,17 @@ stream_search = [html.Br(), dbc.Label("Topic to search:", style={
     dbc.Button(children="Search",
                id="button-stream", className="button_predict", style={'width': '20%', 'font-size': '100%'}, )]
 
+loading_spinner = html.Div(
+    [
+        *refresh_predict,
+        dbc.Spinner(html.Div(id="loading-output")),
+    ]
+)
+
 config_card = dbc.Card([
     dbc.CardHeader("Configure Dashboard", className="card-header"),
-    dbc.CardBody([*trending_countries,
-                  *refresh_predict,
+    dbc.CardBody([*trending_countries, loading_spinner,
+                #   *refresh_predict,
                   *refresh_rate,
                   *stream_search,
                   ]),
@@ -263,7 +269,6 @@ def start_stream(n, topic):
         if topic != redis_client.get_key('topic') and topic != '':
             redis_client.delete_stream_data()
         redis_client.set_key('topic', topic)
-        time.sleep(3)
         return ["Stop"]
     else:
         api_services.stop_stream()
@@ -303,36 +308,35 @@ def trend_graph(value, options):
     return get_trends_graph(df_trends, label)
 
 
-@app.callback([Output('store-sentiment-prediction', 'data'), Output('store-emotion-prediction', 'data'), Output('button-refresh-predict', 'n_clicks')],  [Input('button-refresh-predict', 'n_clicks')], prevent_initial_call=False)
+@app.callback([Output('store-sentiment-prediction', 'data'), Output('store-emotion-prediction', 'data'), Output("loading-output", "children")], [Input('button-refresh-predict', 'n_clicks')], 
+# running=[(Output("button-refresh-predict", "disabled"), True, False)], 
+prevent_initial_call=False)
 def make_prediction(refresh_button_clicks, ):
-    def _make_prediction(n, df):
+    def _make_prediction(df):
         df_sentiment = form_sntiment_prediction_df(
             api_services.predict_sentiment(df))
         df_emotion = form_emotion_prediction_df(
             api_services.predict_emotion(df))
-        return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), n]
+        return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), " "]
 
     isRefreshed = ctx.triggered_id is None
     isStreamed = redis_client.get_key("isStreamed") is not None
     isStreaming = int(redis_client.get_key("stream"))
-    isUpdated = refresh_button_clicks is not None
 
     if isRefreshed and not isStreamed:
         df_stream = df
-        return _make_prediction(refresh_button_clicks, df_stream)
+        return _make_prediction(df_stream)
     elif isRefreshed and isStreamed:
         df_stream = redis_client.get_stream_data()
-        return _make_prediction(refresh_button_clicks, df_stream)
+        return _make_prediction(df_stream)
     elif isStreaming:
-        n_clicks = 0
         df_stream = redis_client.get_stream_data()
-        return _make_prediction(n_clicks, df_stream)
-    elif not isStreaming:
-        if refresh_button_clicks == 1:
-            df_stream = redis_client.get_stream_data()
-            return _make_prediction(refresh_button_clicks, df_stream)
-        else:
-            raise dash.exceptions.PreventUpdate
+        return _make_prediction(df_stream)
+    elif not isStreamed:
+        raise dash.exceptions.PreventUpdate
+    else:
+        df_stream = redis_client.get_stream_data() 
+        return _make_prediction(df_stream)
 
 
 @app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False)
@@ -374,6 +378,8 @@ def get_keywords(n, ):
     def _make_wordcloud(df):
         kers = api_services.extract_keywords(df['text'])['keywords']
         img = BytesIO()
+        if len(kers) == 0:
+            raise dash.exceptions.PreventUpdate
         make_wordcloud(" ".join(kers), 810, 500).save(img, format='PNG')
         return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
@@ -400,6 +406,8 @@ def get_ents(n):
     def _make_wordcloud(df):
         ents = api_services.get_ner(df['text'])['entities']
         img = BytesIO()
+        if len(ents) == 0:
+            raise dash.exceptions.PreventUpdate
         make_wordcloud(" ".join(ents), 810, 500).save(img, format='PNG')
         return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
 
