@@ -24,16 +24,17 @@ redis_client.set_key("stream", 0)
 redis_client.set_key("topic", "")
 
 refresh_rate_value = 8
+MILLISECOND_IN_SECOND= 1000
 
 @app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
 def set_interval(v):
-    return float(v)*1000
+    return float(v)*MILLISECOND_IN_SECOND
 
 
 interval = dcc.Interval(
     id='my_interval',
     disabled=False,
-    interval=1000*refresh_rate_value,
+    interval=MILLISECOND_IN_SECOND*refresh_rate_value,
     n_intervals=0,
     max_intervals=-1,
 )
