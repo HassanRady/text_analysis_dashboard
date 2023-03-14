@@ -261,8 +261,8 @@ app.layout = html.Div(
      ])
 
 
-@app.callback([Output('button-stream', 'children')], [Input('button-stream', 'n_clicks')], [State('topic-input', 'value')])
-def start_stream(n, topic):
+@app.callback([Output('button-stream', 'children'), Output("my_interval", "disabled")], [Input('button-stream', 'n_clicks')], [State('topic-input', 'value'), State("my_interval", "disabled")])
+def start_stream(n, topic, disabled):
     if not topic:
         raise dash.exceptions.PreventUpdate
     if n % 2 == 1:
@@ -272,11 +272,11 @@ def start_stream(n, topic):
         if topic != redis_client.get_key('topic') and topic != '':
             redis_client.delete_stream_data()
         redis_client.set_key('topic', topic)
-        return ["Stop"]
+        return ["Stop", disabled]
     else:
         api_services.stop_stream()
         redis_client.set_key('stream', 0)
-        return ["Start"]
+        return ["Start", not disabled]
 
 
 @app.callback([
