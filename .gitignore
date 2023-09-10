@@ -199,4 +199,4 @@ test2.py
 .vscode/
 # *.png
 *.csv
-# End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
+*.env
