@@ -55,12 +55,12 @@ class API:
         response = requests.get(f"{SPARK_STREAM_API_URL}/stop")
         return response.text
 
-    def get_offline_tweets(self):
-        response = requests.get(
-            f"{CASSANDRA_READER_URL}/data", )
-        return response.json()
+    def get_offline_data(self):
+        import pandas as pd
+        df = pd.read_csv("data.csv")
+        return df.to_json(orient='records')        
 
-    def get_trending_hashtags(self, WOEID=1):
+    def get_trending(self, WOEID=1):
         response = requests.get(f"{TRENDING_HASHTAGS_SERVICE_URL}/trending_hashtags", params={f'WOEID': WOEID})
         return response.json()
 
@@ -83,7 +83,7 @@ class API:
         body = {'inputs': X.tolist()}
         request = requests.post(f'{EMOTION_MODEL_SERVICE_URL}/v1/models/emotion/versions/1:predict', json=body)
         request_json = request.json()
-        request_json['tweet'] = X
+        request_json['text'] = X
         request_json['author_id'] = df['author_id']
         return request_json
 
@@ -92,6 +92,6 @@ class API:
         body = {'inputs': X.tolist()}
         request = requests.post(f'{SENTIMENT_MODEL_SERVICE_URL}/v1/models/sentiment/labels/production:predict', json=body)
         request_json = request.json()
-        request_json['tweet'] = X
+        request_json['text'] = X
         request_json['author_id'] = df['author_id']
         return request_json

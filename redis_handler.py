@@ -9,7 +9,7 @@ class RedisClient:
         self.r = redis.Redis(host=self.host, port=self.port, charset='utf-8', decode_responses=True)
     
     def get_stream_data(self):
-        keys = self.r.scan_iter(match='online_tweets:*')
+        keys = self.r.scan_iter(match='online_instances:*')
         data = {'author_id': [], 'text': [],}
         for key in keys:
             data['author_id'].append(self.r.hget(key, 'author_id'))
@@ -27,7 +27,7 @@ class RedisClient:
         self.r.delete(key)
 
     def delete_stream_data(self):
-        keys = self.r.scan_iter(match='online_tweets:*')
+        keys = self.r.scan_iter(match='online_instances:*')
         for key in keys:
             self.r.delete(key)
 

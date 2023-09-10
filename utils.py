@@ -66,9 +66,9 @@ def form_sntiment_prediction_df(data):
 
 def make_sentiment_wordcloud(df_preds, sentiment):
 
-    sentiment_tweets = df_preds[df_preds['label'] == sentiment]
-    tweets = sentiment_tweets['tweet'].tolist()
-    text = " ".join(tweets)
+    sentiment_instances = df_preds[df_preds['label'] == sentiment]
+    instances = sentiment_instances['text'].tolist()
+    text = " ".join(instances)
 
     mask = np.array(Image.open("twitter2.png"))
     wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",

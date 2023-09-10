@@ -111,8 +111,8 @@ def get_emotion_graph(label_count):
 def get_trends_graph(df_trends, label):
     data = [go.Bar(
             x=df_trends['name'],
-            y=df_trends['tweet_volume'],
-            text=df_trends['tweet_volume'],
+            y=df_trends['tweet_volume'],   # TODO: decouple
+            text=df_trends['tweet_volume'], # TODO: decouple
             textposition='auto',
             marker=dict(
                 color='#00d1ff',

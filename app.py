@@ -18,7 +18,7 @@ _logger = logger.get_logger(__name__)
 api_services = API()
 redis_client = RedisClient()
 
-df = pd.read_json(api_services.get_offline_tweets())[:1000]
+df = pd.read_json(api_services.get_offline_data())[:1000]
 redis_client.set_key("first_open", 1)
 redis_client.set_key("stream", 0)
 redis_client.set_key("topic", "")
@@ -39,14 +39,14 @@ interval = dcc.Interval(
     max_intervals=-1,
 )
 
-card_count_tweets = dbc.Card(
+card_count_instances = dbc.Card(
     [
         dbc.CardBody(
             [
-                html.P(children=f"{df.shape[0]}", id="tweets_count",
+                html.P(children=f"{df.shape[0]}", id="instance_count",
                        className="h2 font-weight-bold mb-0",
                        ),
-                html.H6("No. of Tweets",
+                html.H6("No. of Instances",
                         className="card-title text-uppercase text-muted mb-0"),
             ]
         ),
@@ -212,7 +212,7 @@ app.layout = html.Div(
             dbc.Col(config_card, width=4),
             dbc.Col(children=[
                 dbc.Row([
-                    dbc.Col(card_count_tweets, width=3),
+                    dbc.Col(card_count_instances, width=3),
                     dbc.Col(card_users, width=3),
                     dbc.Col(card_positives, width=3),
                     dbc.Col(card_negatives, width=3),
@@ -280,7 +280,7 @@ def start_stream(n, topic, disabled):
 
 
 @app.callback([
-    Output("tweets_count", 'children'), Output('users_count', 'children'),
+    Output("instance_count", 'children'), Output('users_count', 'children'),
 ],
     [Input('my_interval', 'n_intervals')])
 def update_count(n):
