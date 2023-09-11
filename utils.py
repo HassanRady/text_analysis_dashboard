@@ -6,6 +6,10 @@ from wordcloud import WordCloud, STOPWORDS
 import pandas as pd
 from PIL import Image
 import numpy as np
+import dash
+import base64
+from io import BytesIO
+
 
 
 stopwords = set(STOPWORDS)
@@ -70,7 +74,7 @@ def make_sentiment_wordcloud(df_preds, sentiment):
     instances = sentiment_instances['text'].tolist()
     text = " ".join(instances)
 
-    mask = np.array(Image.open("twitter2.png"))
+    mask = np.array(Image.open("reddit.png"))
     wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
                         max_words=1000, mask=mask, contour_color='yellow', random_state=42, colormap='tab20c',).generate(text)
     return wordcloud.to_image()
@@ -80,5 +84,12 @@ def make_wordcloud(text, width=400, height=400, ):
                         max_words=1000, random_state=42, height=height, width=width,  colormap='tab20c',).generate(text)
     return wordcloud.to_image()
 
+def get_wordcloud(data):
+        img = BytesIO()
+        if not len(data):
+            print("No data")
+            raise dash.exceptions.PreventUpdate
+        make_wordcloud(" ".join(data), 810, 500).save(img, format='PNG')
+        return f'data:image/png;base64,{base64.b64encode(img.getvalue()).decode()}'
 
 # def check_empty(df):

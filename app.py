@@ -13,6 +13,12 @@ from api_calls import API
 from redis_handler import RedisClient
 import logger
 
+from event_listener import consume
+from config import settings
+
+import asyncio
+
+
 _logger = logger.get_logger(__name__)
 
 api_services = API()
@@ -23,12 +29,22 @@ redis_client.set_key("first_open", 1)
 redis_client.set_key("stream", 0)
 redis_client.set_key("topic", "")
 
-refresh_rate_value = 8
+refresh_rate_value = 3
 MILLISECOND_IN_SECOND= 1000
+
+
+@app.callback(Output('placeholder', 'children'), Input('placeholder', 'children'))
+def start_consumer(x):
+    asyncio.run(consume())
+    return "None"
+
 
 @app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
 def set_interval(v):
     return float(v)*MILLISECOND_IN_SECOND
+
+
+hidden_div = html.Div(id='placeholder', style={'display': 'none'})
 
 
 interval = dcc.Interval(
@@ -206,7 +222,7 @@ card_ner_word_cloud = dbc.Card([
     className="card shadow",)
 
 app.layout = html.Div(
-    [interval, store_sentiment_prediction, store_emotion_prediction,
+    [hidden_div, interval, store_sentiment_prediction, store_emotion_prediction,
 
         dbc.Row([
             dbc.Col(config_card, width=4),
@@ -218,7 +234,7 @@ app.layout = html.Div(
                     dbc.Col(card_negatives, width=3),
                 ]),
 
-                html.Div(id='placeholder', style={'display': 'none'}),
+                # html.Div(id='placeholder', style={'display': 'none'}),
 
                 html.Div(
                     dbc.Row([
@@ -378,60 +394,12 @@ def switch_positive_tab(active_tab):
 
 @app.callback(Output('keywords-wordcloud', 'src'), Input('my_interval', 'n_intervals'),)
 def get_keywords(n, ):
-    def _make_wordcloud(df):
-        kers = api_services.extract_keywords(df['text'])['keywords']
-        img = BytesIO()
-        if len(kers) == 0:
-            raise dash.exceptions.PreventUpdate
-        make_wordcloud(" ".join(kers), 810, 500).save(img, format='PNG')
-        return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
-
-    isRefreshed = ctx.triggered_id is None
-    isUpdated = ctx.triggered_id == "my_interval"
-    isStreaming = int(redis_client.get_key("stream"))
-    isStreamed = redis_client.get_key("isStreamed") is not None
-
-    if isRefreshed and not isStreamed:
-        df_stream = df
-        return _make_wordcloud(df_stream)
-    elif isRefreshed and isStreamed:
-        df_stream = redis_client.get_stream_data()
-        return _make_wordcloud(df_stream)
-    elif isUpdated and not isStreaming:
-        raise dash.exceptions.PreventUpdate
-    elif isUpdated and isStreaming:
-        df_stream = redis_client.get_stream_data()
-        return _make_wordcloud(df_stream)
-
-
+    data = redis_client.get_stream_data(settings.KAFKA_KEYWORDS_TOPIC)
+    redis_client.delete_stream_data(settings.KAFKA_KEYWORDS_TOPIC)
+    return get_wordcloud(data['text'])
+            
 @app.callback(Output('ner-wordcloud', 'src'), Input('my_interval', 'n_intervals'),)
 def get_ents(n):
-    def _make_wordcloud(df):
-        ents = api_services.get_ner(df['text'])['entities']
-        img = BytesIO()
-        if len(ents) == 0:
-            raise dash.exceptions.PreventUpdate
-        make_wordcloud(" ".join(ents), 810, 500).save(img, format='PNG')
-        return 'data:image/png;base64,{}'.format(base64.b64encode(img.getvalue()).decode())
-
-    isRefreshed = ctx.triggered_id is None
-    isUpdated = ctx.triggered_id == "my_interval"
-    isStreaming = int(redis_client.get_key("stream"))
-    isStreamed = redis_client.get_key("isStreamed") is not None
-
-    if isRefreshed and not isStreamed:
-        df_stream = df
-        return _make_wordcloud(df_stream)
-    elif isRefreshed and isStreamed:
-        df_stream = redis_client.get_stream_data()
-        return _make_wordcloud(df_stream)
-    elif isUpdated and not isStreaming:
-        raise dash.exceptions.PreventUpdate
-    elif isUpdated and isStreaming:
-        df_stream = redis_client.get_stream_data()
-        return _make_wordcloud(df_stream)
-
-
-
+    return
 if __name__ == '__main__':
     app.run_server(debug=True, port='7020', host='0.0.0.0', dev_tools_prune_errors=True)

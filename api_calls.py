@@ -39,22 +39,6 @@ NAMED_ENTITY_RECOGNITION_SERVICE_URL = f"http://{NAMED_ENTITY_RECOGNITION_SERVIC
 
 
 class API:
-    def __init__(self):
-        pass
-
-    def start_stream(self, topic):
-        def _start_stream(topic):
-            s = requests.get(
-                f"{TWITTER_HANDLER_API_URL}/start", params={"topic": topic})
-            s2 = requests.get(
-            f"{SPARK_STREAM_API_URL}/start")
-        _start_stream(topic)
-
-    def stop_stream(self):
-        response = requests.get(f"{TWITTER_HANDLER_API_URL}/stop")
-        response = requests.get(f"{SPARK_STREAM_API_URL}/stop")
-        return response.text
-
     def get_offline_data(self):
         import pandas as pd
         df = pd.read_csv("data.csv")
@@ -64,19 +48,6 @@ class API:
         response = requests.get(f"{TRENDING_HASHTAGS_SERVICE_URL}/trending_hashtags", params={f'WOEID': WOEID})
         return response.json()
 
-    def get_ner(self, text):
-        url = f"{NAMED_ENTITY_RECOGNITION_SERVICE_URL}/ner"
-        field = 'text'
-        body  = {field: text.tolist()}
-        response = requests.post(url=url, json=body)
-        return response.json()
-
-    def extract_keywords(self, text):
-        url = f"{KEYWORD_EXTRACTION_SERVICE_URL}/extract"
-        field = 'text'
-        body  = {field: text.tolist()}
-        response = requests.post(url=url, json=body)
-        return response.json()
 
     def predict_emotion(self, df):
         X = df['text']
