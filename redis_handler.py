@@ -20,6 +20,7 @@ class RedisClient:
     
     def delete_stream_data(self, table):
         keys = self.r.scan_iter(match=f'{table}:*')
+        # keys.
         for key in keys:
             self.r.delete(key)
 

@@ -8,7 +8,6 @@ class Settings(BaseSettings):
         env_file = os.getenv("ENV_FILE", "dev.env") 
         env_file_encoding = "utf-8"
 
-    KAFKA_BOOTSTRAP_SERVER: str
     KAFKA_NER_TOPIC: str
     KAFKA_KEYWORDS_TOPIC: str
 

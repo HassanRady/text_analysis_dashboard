@@ -79,17 +79,21 @@ def make_sentiment_wordcloud(df_preds, sentiment):
                         max_words=1000, mask=mask, contour_color='yellow', random_state=42, colormap='tab20c',).generate(text)
     return wordcloud.to_image()
 
-def make_wordcloud(text, width=400, height=400, ):
-    wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
-                        max_words=1000, random_state=42, height=height, width=width,  colormap='tab20c',).generate(text)
-    return wordcloud.to_image()
+# def make_wordcloud(text, width=400, height=400, ):
+#     wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
+#                         max_words=1000, random_state=42, height=height, width=width,  colormap='tab20c',).generate(text)
+#     return wordcloud.to_image()
 
-def get_wordcloud(data):
-        img = BytesIO()
-        if not len(data):
-            print("No data")
-            raise dash.exceptions.PreventUpdate
-        make_wordcloud(" ".join(data), 810, 500).save(img, format='PNG')
-        return f'data:image/png;base64,{base64.b64encode(img.getvalue()).decode()}'
+def get_wordcloud(text):
+    # if not len(text):
+    #     print("No data")
+    #     raise dash.exceptions.PreventUpdate
+    img = BytesIO()    
+    wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
+                        max_words=1000, random_state=42, height=810, width=500,  colormap='tab20c',).generate(text)
+    wordcloud.to_image().save(img, format='PNG')
+    del wordcloud
+    return f"data:image/png;base64, {base64.b64encode(img.getvalue()).decode()}"
+
 
 # def check_empty(df):
