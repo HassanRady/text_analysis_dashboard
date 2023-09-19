@@ -128,6 +128,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.vnev
 env/
 venv/
 ENV/
@@ -200,3 +201,4 @@ test2.py
 # *.png
 *.csv
 *.env
+tmp.*

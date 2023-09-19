@@ -1,14 +1,17 @@
 
-# Python program to generate WordCloud
 
-# importing all necessary modules
 from wordcloud import WordCloud, STOPWORDS
+from collections import Counter
+import re
 import pandas as pd
 from PIL import Image
 import numpy as np
-import dash
 import base64
 from io import BytesIO
+
+from logger import get_file_logger
+
+_logger = get_file_logger(__name__, 'debug')
 
 
 
@@ -21,10 +24,7 @@ NEUTRAL = "NEUTRAL"
 NEUTRAL_THRESHOLD = 0.6
 
 def get_final_sentiment_label(label, proba):
-        if proba < NEUTRAL_THRESHOLD:
-            return NEUTRAL
-        else:
-            return label
+        return NEUTRAL if proba < NEUTRAL_THRESHOLD else label
 
 def read_emotion_model_prediction(data):
     df = pd.DataFrame(data)
@@ -36,8 +36,7 @@ classes_to_index = dict((c, i) for i, c in enumerate(classes))
 index_to_classes = dict((v, k) for k, v in classes_to_index.items())
 
 def interpret_emotion_prediction(x):
-    label = index_to_classes[x]
-    return label
+        return index_to_classes[x]
 
 def form_emotion_prediction_df(data):
     df = read_emotion_model_prediction(data)
@@ -79,21 +78,19 @@ def make_sentiment_wordcloud(df_preds, sentiment):
                         max_words=1000, mask=mask, contour_color='yellow', random_state=42, colormap='tab20c',).generate(text)
     return wordcloud.to_image()
 
-# def make_wordcloud(text, width=400, height=400, ):
-#     wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
-#                         max_words=1000, random_state=42, height=height, width=width,  colormap='tab20c',).generate(text)
-#     return wordcloud.to_image()
+def get_word_frequency(text):
+    words = re.findall(r'\w+', text.lower())
+    return Counter(words)
 
-def get_wordcloud(text):
-    # if not len(text):
-    #     print("No data")
-    #     raise dash.exceptions.PreventUpdate
+import time
+wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
+                        random_state=42, height=810, width=500,  colormap='tab20c',)
+def get_wordcloud(word_freq):
     img = BytesIO()    
-    wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
-                        max_words=1000, random_state=42, height=810, width=500,  colormap='tab20c',).generate(text)
-    wordcloud.to_image().save(img, format='PNG')
-    del wordcloud
+    start = time.time()
+    gen_cloud = wordcloud.generate_from_frequencies(word_freq)
+    print(f"Time taken to generate wordcloud: {time.time() - start}")
+    gen_cloud.to_image().save(img, format='PNG')
     return f"data:image/png;base64, {base64.b64encode(img.getvalue()).decode()}"
 
 
-# def check_empty(df):

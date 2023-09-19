@@ -1,6 +1,6 @@
-import time
 from tabs import *
 from utils import *
+from utils import get_word_frequency, get_wordcloud
 from graphs import *
 import dash
 from dash.dependencies import Input, Output, State
@@ -11,25 +11,25 @@ from functions import *
 from main import app
 from api_calls import API
 from redis_handler import RedisClient
-import logger
+
+from logger import get_file_logger
 
 from config import settings
 
 
-_logger = logger.get_logger(__name__)
+_logger = get_file_logger(__name__)
 
 api_services = API()
 redis_client = RedisClient()
 
-df = pd.read_json(api_services.get_offline_data())[:1000]
 
-refresh_rate_value = 2
+refresh_rate_value = 10
 MILLISECOND_IN_SECOND= 1000
 
 
-@app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
-def set_interval(v):
-    return float(v)*MILLISECOND_IN_SECOND
+# @app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
+# def set_interval(v):
+#     return float(v)*MILLISECOND_IN_SECOND
 
 
 hidden_div = html.Div(id='placeholder', style={'display': 'none'})
@@ -140,7 +140,7 @@ interval = dcc.Interval(
 
 # loading_spinner = html.Div(
 #     [
-#         *refresh_predict,
+#         # *refresh_predict,
 #         dbc.Spinner(html.Div(id="loading-output")),
 #     ]
 # )
@@ -159,31 +159,31 @@ interval = dcc.Interval(
 
 
 # trend_graph = dcc.Graph(id='trend_graph', className='card shadow',)
-# sentiment_graph = dcc.Graph(id='sentiment_graph', className='card shadow',)
-# emotion_graph = dcc.Graph(id='emotion_graph', className='card shadow',)
+sentiment_graph = dcc.Graph(id='sentiment_graph', className='card shadow',)
+emotion_graph = dcc.Graph(id='emotion_graph', className='card shadow',)
 
 
-# tab_positive_word_cloud = dbc.Tab(
-#     label="Positive Word Cloud", tab_id="tab-positive-word-cloud", style={}, labelClassName="w-100")
-# tab_positive_word_count = dbc.Tab(
-#     label="Positive Word Count", tab_id="tab-positive-word-count", )
+tab_positive_word_cloud = dbc.Tab(
+    label="Positive Word Cloud", tab_id="tab-positive-word-cloud", style={}, labelClassName="w-100")
+tab_positive_word_count = dbc.Tab(
+    label="Positive Word Count", tab_id="tab-positive-word-count", )
 
-# tab_negative_word_cloud = dbc.Tab(
-#     label="Negative Word Cloud", tab_id="tab-negative-word-cloud", style={}, labelClassName="w-100")
-# tab_negative_word_count = dbc.Tab(
-#     label="Negative Word Count", tab_id="tab-negative-word-count", )
+tab_negative_word_cloud = dbc.Tab(
+    label="Negative Word Cloud", tab_id="tab-negative-word-cloud", style={}, labelClassName="w-100")
+tab_negative_word_count = dbc.Tab(
+    label="Negative Word Count", tab_id="tab-negative-word-count", )
 
-# positive_tabs = html.Div(dbc.Tabs(
-#     [tab_positive_word_cloud, tab_positive_word_count], id="positive_tab", active_tab='tab-positive-word-cloud', style={'background-color': "#1D262F"}), )
+positive_tabs = html.Div(dbc.Tabs(
+    [tab_positive_word_cloud, tab_positive_word_count], id="positive_tab", active_tab='tab-positive-word-cloud', style={'background-color': "#1D262F"}), )
 
-# negative_tabs = html.Div(dbc.Tabs(
-#     [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},), )
+negative_tabs = html.Div(dbc.Tabs(
+    [tab_negative_word_cloud, tab_negative_word_count], id="negative_tab", active_tab='tab-negative-word-cloud', style={'background-color': "#1D262F"},), )
 
 
-# store_sentiment_prediction = dcc.Store(
-#     id='store-sentiment-prediction', storage_type='memory')
-# store_emotion_prediction = dcc.Store(
-#     id='store-emotion-prediction', storage_type='memory')
+store_sentiment_prediction = dcc.Store(
+    id='store-sentiment-prediction', storage_type='memory')
+store_emotion_prediction = dcc.Store(
+    id='store-emotion-prediction', storage_type='memory')
 
 card_keywords_word_cloud = dbc.Card([
     dbc.CardHeader(
@@ -216,58 +216,58 @@ app.layout = html.Div([interval,
 
      ],),])
 
-# app.layout = html.Div(
-#     [hidden_div, interval, store_sentiment_prediction, store_emotion_prediction,
+app.layout = dbc.Container(
+    [hidden_div, interval, store_sentiment_prediction, store_emotion_prediction,
 
-#         dbc.Row([
-#             dbc.Col(config_card, width=4),
-#             dbc.Col(children=[
-#                 dbc.Row([
-#                     dbc.Col(card_count_instances, width=3),
-#                     dbc.Col(card_users, width=3),
-#                     dbc.Col(card_positives, width=3),
-#                     dbc.Col(card_negatives, width=3),
-#                 ]),
+        # dbc.Row([
+        #     dbc.Col(config_card, width=4),
+        #     dbc.Col(children=[
+        #         dbc.Row([
+        #             dbc.Col(card_count_instances, width=3),
+        #             dbc.Col(card_users, width=3),
+        #             dbc.Col(card_positives, width=3),
+        #             dbc.Col(card_negatives, width=3),
+        #         ]),
 
-#                 html.Div(
-#                     dbc.Row([
-#                         dbc.Col(html.Div([trend_graph],
-#                                 className="card shadow"), width=12),
-#                     ]), className=""),
-#             ],
-#                 width=8),
+        #         html.Div(
+        #             dbc.Row([
+        #                 dbc.Col(html.Div([trend_graph],
+        #                         className="card shadow"), width=12),
+        #             ]), className=""),
+        #     ],
+        #         width=8),
 
-#         ]),
+        # ]),
 
-#      dbc.Row([
-#          dbc.Col(card_keywords_word_cloud, ),
-#          dbc.Col(card_ner_word_cloud, ),
+     dbc.Row([
+         dbc.Col(card_keywords_word_cloud, ),
+         dbc.Col(card_ner_word_cloud, ),
 
-#      ],),
+     ],),
 
-#      dbc.Row([
-#          dbc.Col(html.Div(emotion_graph, className="card shadow"), width=6),
-#          dbc.Col(html.Div(sentiment_graph, className="card shadow"), width=6),
+     dbc.Row([
+         dbc.Col(html.Div(emotion_graph, className="card shadow"), width=6),
+         dbc.Col(html.Div(sentiment_graph, className="card shadow"), width=6),
 
-#      ]),
+     ]),
 
-#         dbc.Row([
+        dbc.Row([
 
-#             dbc.Col(dbc.Row([
-#                 negative_tabs,
-#                 html.Div(id='negative-tab-content', children=[]),
-#             ],
-#             ), width=6),
+            dbc.Col(dbc.Row([
+                negative_tabs,
+                html.Div(id='negative-tab-content', children=[]),
+            ],
+            ), width=6),
 
-#             dbc.Col(dbc.Row([
-#                 positive_tabs,
-#                 html.Div(id='positive-tab-content', children=[]),
-#             ],
-#             ), width=6),
-#         ]),
+            dbc.Col(dbc.Row([
+                positive_tabs,
+                html.Div(id='positive-tab-content', children=[]),
+            ],
+            ), width=6),
+        ]),
 
 
-#      ])
+     ], fluid=True)
 
 
 # @app.callback([Output('button-stream', 'children'), Output("my_interval", "disabled")], [Input('button-stream', 'n_clicks')], [State('topic-input', 'value'), State("my_interval", "disabled")])
@@ -317,72 +317,53 @@ app.layout = html.Div([interval,
 # def trend_graph(value, options):
 #     label = [x['label'] for x in options if x['value'] == value][0]
 #     df_trends = get_trends(value)
-#     return get_trends_graph(df_trends, label)
+    # return get_trends_graph(df_trends, label)
 
 
-# @app.callback([Output('store-sentiment-prediction', 'data'), Output('store-emotion-prediction', 'data'), Output("loading-output", "children")], [Input('button-refresh-predict', 'n_clicks')], 
-# # running=[(Output("button-refresh-predict", "disabled"), True, False)], 
-# prevent_initial_call=False)
-# def make_prediction(refresh_button_clicks, ):
-#     def _make_prediction(df):
-#         df_sentiment = form_sntiment_prediction_df(
-#             api_services.predict_sentiment(df))
-#         df_emotion = form_emotion_prediction_df(
-#             api_services.predict_emotion(df))
-#         return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), " "]
-
-#     isRefreshed = ctx.triggered_id is None
-#     isStreamed = redis_client.get_key("isStreamed") is not None
-#     isStreaming = int(redis_client.get_key("stream"))
-
-#     if isRefreshed and not isStreamed:
-#         df_stream = df
-#         return _make_prediction(df_stream)
-#     elif isRefreshed and isStreamed:
-#         df_stream = redis_client.get_stream_data()
-#         return _make_prediction(df_stream)
-#     elif isStreaming:
-#         df_stream = redis_client.get_stream_data()
-#         return _make_prediction(df_stream)
-#     elif not isStreamed:
-#         raise dash.exceptions.PreventUpdate
-#     else:
-#         df_stream = redis_client.get_stream_data() 
-#         return _make_prediction(df_stream)
+@app.callback([Output('store-sentiment-prediction', 'data'), Output('store-emotion-prediction', 'data'),], [Input('my_interval', 'n_intervals')], 
+# running=[(Output("button-refresh-predict", "disabled"), True, False)], 
+prevent_initial_call=False)
+def make_prediction(n):
+    df_sentiment = form_sntiment_prediction_df(
+        api_services.predict_sentiment(df))
+    df_emotion = form_emotion_prediction_df(
+        api_services.predict_emotion(df))
+    return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), " "]
 
 
-# @app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False)
-# def make_sentiment_graph(data, ):
-#     sentiment_count = get_label_count(data)
-#     return get_sentiment_graph(sentiment_count)
+
+@app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False)
+def make_sentiment_graph(data, ):
+    sentiment_count = get_label_count(data)
+    return get_sentiment_graph(sentiment_count)
 
 
-# @app.callback(Output('emotion_graph', 'figure'),  [Input('store-emotion-prediction', 'data'), ], prevent_initial_call=False)
-# def make_emotion_graph(data, ):
-#     emotion_count = get_label_count(data)
-#     return get_emotion_graph(emotion_count)
+@app.callback(Output('emotion_graph', 'figure'),  [Input('store-emotion-prediction', 'data'), ], prevent_initial_call=False)
+def make_emotion_graph(data, ):
+    emotion_count = get_label_count(data)
+    return get_emotion_graph(emotion_count)
 
 
-# @app.callback(
-#     Output("negative-tab-content", "children"),
-#     [Input("negative_tab", "active_tab")]
-# )
-# def switch_negative_tab(active_tab):
-#     if active_tab == "tab-negative-word-cloud":
-#         return layout_negative_wordcloud
-#     elif active_tab == "tab-negative-word-count":
-#         return layout_grapth_negative_word_count
+@app.callback(
+    Output("negative-tab-content", "children"),
+    [Input("negative_tab", "active_tab")]
+)
+def switch_negative_tab(active_tab):
+    if active_tab == "tab-negative-word-cloud":
+        return layout_negative_wordcloud
+    elif active_tab == "tab-negative-word-count":
+        return layout_grapth_negative_word_count
 
 
-# @app.callback(
-#     Output("positive-tab-content", "children"),
-#     [Input("positive_tab", "active_tab")]
-# )
-# def switch_positive_tab(active_tab):
-#     if active_tab == "tab-positive-word-cloud":
-#         return layout_positive_wordcloud
-#     elif active_tab == "tab-positive-word-count":
-#         return layout_grapth_positive_word_count
+@app.callback(
+    Output("positive-tab-content", "children"),
+    [Input("positive_tab", "active_tab")]
+)
+def switch_positive_tab(active_tab):
+    if active_tab == "tab-positive-word-cloud":
+        return layout_positive_wordcloud
+    elif active_tab == "tab-positive-word-count":
+        return layout_grapth_positive_word_count
 
 
 @app.callback(
@@ -391,36 +372,25 @@ app.layout = html.Div([interval,
     [Input('my_interval', 'n_intervals')],
 )
 def generate_key_wordcloud(n, ):
-    xx = redis_client.get_stream_data("keywords_subreddit")['text'].str.cat()
-    redis_client.delete_stream_data("keywords_subreddit")
-
-    wordcloud = WordCloud(width=800, height=400,
-                          background_color='white').generate(xx)
-
-    img = BytesIO()
-    wordcloud.to_image().save(img, format='PNG')
-    
-    # del wordcloud
-    # del xx
-    # return "none"
-    return f"data:image/png;base64, {base64.b64encode(img.getvalue()).decode()}"
+    text = redis_client.get_data(settings.KAFKA_KEYWORDS_TOPIC)['output'].str.cat()
+    if not text:
+        dash.exceptions.PreventUpdate
+    redis_client.delete_data(settings.KAFKA_KEYWORDS_TOPIC)
+    word_freq = get_word_frequency(text)
+    return api_services.get_wordcloud_from_text(text)
 
 @app.callback(
     Output('ner-wordcloud', 'src'),
     [Input('my_interval', 'n_intervals')],
 )
 def generate_ner_wordcloud(n, ):
-    xx = redis_client.get_stream_data("ner_subreddit")['text'].str.cat()
-    redis_client.delete_stream_data("ner_subreddit")
+    text = redis_client.get_data(settings.KAFKA_NER_TOPIC)['output'].str.cat()
+    if not text:
+        dash.exceptions.PreventUpdate
+    redis_client.delete_data(settings.KAFKA_NER_TOPIC)
+    word_freq = get_word_frequency(text)
+    return api_services.get_wordcloud_from_text(text)
 
-    wordcloud = WordCloud(width=800, height=400,
-                          background_color='white').generate(xx)
-    
-    img = BytesIO()
-    wordcloud.to_image().save(img, format='PNG')
-    del wordcloud
-    # del xx
-    return f"data:image/png;base64, {base64.b64encode(img.getvalue()).decode()}"
 
 if __name__ == '__main__':
     app.run_server(debug=True, port='7020', host='0.0.0.0', dev_tools_prune_errors=True)
