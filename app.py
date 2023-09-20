@@ -185,13 +185,13 @@ store_sentiment_prediction = dcc.Store(
 store_emotion_prediction = dcc.Store(
     id='store-emotion-prediction', storage_type='memory')
 
-card_keywords_word_cloud = dbc.Card([
+card_kewords_word_cloud = dbc.Card([
     dbc.CardHeader(
         "Keywords", className="card-header", style={'position': 'center', 'color': '#8898aa'}),
 
     dbc.CardBody([
         html.Div(
-            dbc.CardImg(id='keywords-wordcloud',), className="",
+            dbc.CardImg(id='keywords-wordcloud',), className="", style={'height': '500px'},
         )
     ], className=""),
 ],
@@ -216,7 +216,7 @@ app.layout = html.Div([interval,
 
      ],),])
 
-app.layout = dbc.Container(
+app.layout = html.Div(
     [hidden_div, interval, store_sentiment_prediction, store_emotion_prediction,
 
         # dbc.Row([
@@ -354,7 +354,6 @@ def switch_negative_tab(active_tab):
     elif active_tab == "tab-negative-word-count":
         return layout_grapth_negative_word_count
 
-
 @app.callback(
     Output("positive-tab-content", "children"),
     [Input("positive_tab", "active_tab")]
@@ -368,7 +367,6 @@ def switch_positive_tab(active_tab):
 
 @app.callback(
     Output('keywords-wordcloud', 'src'),
-    # Output('placeholder', 'children'),
     [Input('my_interval', 'n_intervals')],
 )
 def generate_key_wordcloud(n, ):
@@ -376,7 +374,6 @@ def generate_key_wordcloud(n, ):
     if not text:
         dash.exceptions.PreventUpdate
     redis_client.delete_data(settings.KAFKA_KEYWORDS_TOPIC)
-    word_freq = get_word_frequency(text)
     return api_services.get_wordcloud_from_text(text)
 
 @app.callback(
@@ -388,7 +385,6 @@ def generate_ner_wordcloud(n, ):
     if not text:
         dash.exceptions.PreventUpdate
     redis_client.delete_data(settings.KAFKA_NER_TOPIC)
-    word_freq = get_word_frequency(text)
     return api_services.get_wordcloud_from_text(text)
 
 
