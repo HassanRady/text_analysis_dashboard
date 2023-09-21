@@ -108,11 +108,11 @@ def get_emotion_graph(label_count):
     return {'data': data, 'layout': layout}
 
 
-def get_trends_graph(df_trends, label):
+def get_trend_graph(x, y):
     data = [go.Bar(
-            x=df_trends['name'],
-            y=df_trends['tweet_volume'],   # TODO: decouple
-            text=df_trends['tweet_volume'], # TODO: decouple
+            x=x,
+            y=y,   
+            text=y, 
             textposition='auto',
             marker=dict(
                 color='#00d1ff',
@@ -120,23 +120,21 @@ def get_trends_graph(df_trends, label):
             )]
 
     layout = go.Layout(
-        title=f'Top 10 Trending Hashtags ({label})',
+        title='Top Trending Subreddit',
         plot_bgcolor='#1D262F',
         paper_bgcolor='#1D262F',
         font=dict(
             family='Open Sans, sans-serif',
             size=12,
-            color='#7f7f7f',
+            color='#7f7f7f'
         ),
         autosize=True,
-        grid=dict(
-        ),
+        grid=dict(),
         modebar=dict(orientation='v'),
         xaxis=dict(color='#8898aa',),
         yaxis=dict(color='#8898aa', gridwidth=1, gridcolor='#5C8CBE'),
-
-
     )
+
     layout.titlefont = dict(size=24, color='#8898aa',
                             family='Open Sans, sans-serif')
     return {'data': data, 'layout': layout}

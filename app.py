@@ -1,6 +1,5 @@
 from tabs import *
 from utils import *
-from utils import get_word_frequency, get_wordcloud
 from graphs import *
 import dash
 from dash.dependencies import Input, Output, State
@@ -9,7 +8,7 @@ import pandas as pd
 import dash_bootstrap_components as dbc
 from functions import *
 from main import app
-from api_calls import API
+from services_call import Services
 from redis_handler import RedisClient
 
 from logger import get_file_logger
@@ -19,7 +18,7 @@ from config import settings
 
 _logger = get_file_logger(__name__)
 
-api_services = API()
+services_client = Services()
 redis_client = RedisClient()
 
 
@@ -27,9 +26,9 @@ refresh_rate_value = 10
 MILLISECOND_IN_SECOND= 1000
 
 
-# @app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
-# def set_interval(v):
-#     return float(v)*MILLISECOND_IN_SECOND
+@app.callback(Output('my_interval', 'interval'), Input('refresh_rate', 'value'))
+def set_interval(v):
+    return float(v)*MILLISECOND_IN_SECOND
 
 
 hidden_div = html.Div(id='placeholder', style={'display': 'none'})
@@ -120,23 +119,25 @@ interval = dcc.Interval(
 # refresh_predict_spinner = dbc.Spinner(
 #     size="lg", color="light", type="border", fullscreen=False,)
 
-# refresh_rate = [html.Br(), dbc.Label("Refresh rate (sec):", style={
-#     'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
-#     dcc.Slider(
-#     id="refresh_rate",
-#     min=2,
-#     max=100,
-#     value=refresh_rate_value,
-#     marks=None,
-#     className="", tooltip={"placement": "bottom", "always_visible": True},
-# ), ]
 
-# stream_search = [html.Br(), dbc.Label("Topic to search:", style={
-#     'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
-#     dbc.Input(id="topic-input", type="text", placeholder="Enter topic",
-#               className="topic_input", style={'width': '40%'}),
-#     dbc.Button(children="Search",
-#                id="button-stream", className="button_predict", style={'width': '20%', 'font-size': '100%'}, )]
+refresh_rate = [html.Br(), dbc.Label("Refresh rate (sec):", style={
+    'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
+    dcc.Slider(
+    id="refresh_rate",
+    min=2,
+    max=100,
+    value=refresh_rate_value,
+    marks=None,
+    className="", tooltip={"placement": "bottom", "always_visible": True},
+), ]
+
+
+stream_search = [html.Br(), dbc.Label("Topic to search:", style={
+    'margin': '0.5em', 'color': '#8898aa', 'font-size': '1em'}),
+    dbc.Input(id="topic-input", type="text", placeholder="Enter topic",
+              className="topic_input", style={'width': '40%'}),
+    dbc.Button(children="Search",
+               id="button-stream", className="button_predict", style={'width': '20%', 'font-size': '100%'}, )]
 
 # loading_spinner = html.Div(
 #     [
@@ -145,20 +146,19 @@ interval = dcc.Interval(
 #     ]
 # )
 
-# config_card = dbc.Card([
-#     dbc.CardHeader("Configure Dashboard", className="card-header"),
-#     dbc.CardBody([*trending_countries, loading_spinner,
-#                 #   *refresh_predict,
-#                   *refresh_rate,
-#                   *stream_search,
-#                   ]),
-# ],
-#     id='config_card',
-#     class_name="card shadow",
-# )
+config_card = dbc.Card([
+    dbc.CardHeader("Configure Dashboard", className="card-header"),
+    dbc.CardBody([
+                  *refresh_rate,
+                  *stream_search,
+                  ]),
+],
+    id='config_card',
+    class_name="card shadow",
+)
 
 
-# trend_graph = dcc.Graph(id='trend_graph', className='card shadow',)
+trend_graph = dcc.Graph(id='trend_graph', className='card shadow',)
 sentiment_graph = dcc.Graph(id='sentiment_graph', className='card shadow',)
 emotion_graph = dcc.Graph(id='emotion_graph', className='card shadow',)
 
@@ -185,13 +185,13 @@ store_sentiment_prediction = dcc.Store(
 store_emotion_prediction = dcc.Store(
     id='store-emotion-prediction', storage_type='memory')
 
-card_kewords_word_cloud = dbc.Card([
+card_keywords_word_cloud = dbc.Card([
     dbc.CardHeader(
         "Keywords", className="card-header", style={'position': 'center', 'color': '#8898aa'}),
 
     dbc.CardBody([
         html.Div(
-            dbc.CardImg(id='keywords-wordcloud',), className="", style={'height': '500px'},
+            dbc.CardImg(id='keywords-wordcloud',), className="", style={'height': '510px'},
         )
     ], className=""),
 ],
@@ -203,7 +203,7 @@ card_ner_word_cloud = dbc.Card([
 
     dbc.CardBody([
         html.Div(
-            dbc.CardImg(id='ner-wordcloud',), className=""
+            dbc.CardImg(id='ner-wordcloud',), className="", style={'height': '510px'}
         )
     ], className=""),
 ],
@@ -219,25 +219,25 @@ app.layout = html.Div([interval,
 app.layout = html.Div(
     [hidden_div, interval, store_sentiment_prediction, store_emotion_prediction,
 
-        # dbc.Row([
-        #     dbc.Col(config_card, width=4),
-        #     dbc.Col(children=[
-        #         dbc.Row([
-        #             dbc.Col(card_count_instances, width=3),
-        #             dbc.Col(card_users, width=3),
-        #             dbc.Col(card_positives, width=3),
+        dbc.Row([
+            dbc.Col(config_card, width=4),
+            dbc.Col(children=[
+                # dbc.Row([
+                    # dbc.Col(card_count_instances, width=3),
+                    # dbc.Col(card_users, width=3),
+                    # dbc.Col(card_positives, width=3),
         #             dbc.Col(card_negatives, width=3),
         #         ]),
 
-        #         html.Div(
-        #             dbc.Row([
-        #                 dbc.Col(html.Div([trend_graph],
-        #                         className="card shadow"), width=12),
-        #             ]), className=""),
-        #     ],
-        #         width=8),
+                html.Div(
+                    dbc.Row([
+                        dbc.Col(html.Div([trend_graph],
+                                className="card shadow"), width=12),
+                    ]), className=""),
+            ],
+                width=8),
 
-        # ]),
+        ]),
 
      dbc.Row([
          dbc.Col(card_keywords_word_cloud, ),
@@ -267,7 +267,7 @@ app.layout = html.Div(
         ]),
 
 
-     ], fluid=True)
+     ])
 
 
 # @app.callback([Output('button-stream', 'children'), Output("my_interval", "disabled")], [Input('button-stream', 'n_clicks')], [State('topic-input', 'value'), State("my_interval", "disabled")])
@@ -275,7 +275,7 @@ app.layout = html.Div(
 #     if not topic:
 #         raise dash.exceptions.PreventUpdate
 #     if n % 2 == 1:
-#         api_services.start_stream(topic)
+#         services_client.start_stream(topic)
 #         redis_client.set_key('stream', 1)
 #         redis_client.set_key('isStreamed', 1)
 #         if topic != redis_client.get_key('topic') and topic != '':
@@ -283,7 +283,7 @@ app.layout = html.Div(
 #         redis_client.set_key('topic', topic)
 #         return ["Stop", disabled]
 #     else:
-#         api_services.stop_stream()
+#         services_client.stop_stream()
 #         redis_client.set_key('stream', 0)
 #         return ["Start", not disabled]
 
@@ -313,34 +313,24 @@ app.layout = html.Div(
 #     return [df_positive['author_id'].nunique(), df_negative['author_id'].nunique()]
 
 
-# @app.callback(Output('trend_graph', 'figure'),  [Input("trending_countries", "value"), State('trending_countries', 'options')])
-# def trend_graph(value, options):
-#     label = [x['label'] for x in options if x['value'] == value][0]
-#     df_trends = get_trends(value)
-    # return get_trends_graph(df_trends, label)
-
-
-@app.callback([Output('store-sentiment-prediction', 'data'), Output('store-emotion-prediction', 'data'),], [Input('my_interval', 'n_intervals')], 
-# running=[(Output("button-refresh-predict", "disabled"), True, False)], 
-prevent_initial_call=False)
-def make_prediction(n):
-    df_sentiment = form_sntiment_prediction_df(
-        api_services.predict_sentiment(df))
-    df_emotion = form_emotion_prediction_df(
-        api_services.predict_emotion(df))
-    return [df_sentiment.to_dict('records'), df_emotion.to_dict('records'), " "]
+@app.callback(Output('trend_graph', 'figure'),  [Input("my_interval", "n_intervals")], prevent_initial_call=False)
+def trend_graph(n):
+    trends = services_client.get_subreddit_trends()
+    return get_trend_graph(pd.DataFrame(trends).sort_values(by='subscribers', ascending=False))
 
 
 
-@app.callback(Output('sentiment_graph', 'figure'),  [Input('store-sentiment-prediction', 'data'), ], prevent_initial_call=False)
-def make_sentiment_graph(data, ):
-    sentiment_count = get_label_count(data)
+
+
+@app.callback(Output('sentiment_graph', 'figure'),  [Input("my_interval", "n_intervals"), ], prevent_initial_call=False)
+def make_sentiment_graph(n):
+    sentiment_count = get_label_count()
     return get_sentiment_graph(sentiment_count)
 
 
-@app.callback(Output('emotion_graph', 'figure'),  [Input('store-emotion-prediction', 'data'), ], prevent_initial_call=False)
-def make_emotion_graph(data, ):
-    emotion_count = get_label_count(data)
+@app.callback(Output('emotion_graph', 'figure'),  [Input("my_interval", "n_intervals"), ], prevent_initial_call=False)
+def make_emotion_graph(n):
+    emotion_count = get_label_count()
     return get_emotion_graph(emotion_count)
 
 
@@ -374,7 +364,7 @@ def generate_key_wordcloud(n, ):
     if not text:
         dash.exceptions.PreventUpdate
     redis_client.delete_data(settings.KAFKA_KEYWORDS_TOPIC)
-    return api_services.get_wordcloud_from_text(text)
+    return services_client.get_wordcloud_from_text(text)
 
 @app.callback(
     Output('ner-wordcloud', 'src'),
@@ -385,7 +375,7 @@ def generate_ner_wordcloud(n, ):
     if not text:
         dash.exceptions.PreventUpdate
     redis_client.delete_data(settings.KAFKA_NER_TOPIC)
-    return api_services.get_wordcloud_from_text(text)
+    return services_client.get_wordcloud_from_text(text)
 
 
 if __name__ == '__main__':
