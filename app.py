@@ -315,67 +315,46 @@ app.layout = html.Div(
 
 @app.callback(Output('trend_graph', 'figure'),  [Input("my_interval", "n_intervals")], prevent_initial_call=False)
 def trend_graph(n):
-    trends = services_client.get_subreddit_trends()
-    return get_trend_graph(pd.DataFrame(trends).sort_values(by='subscribers', ascending=False))
-
-
-
-
+    trends = services_client.get_subreddit_trends()['output']
+    df = pd.DataFrame(trends).sort_values(by='subscribers', ascending=False)
+    return get_trend_graph(df.name, df.subscribers)
 
 @app.callback(Output('sentiment_graph', 'figure'),  [Input("my_interval", "n_intervals"), ], prevent_initial_call=False)
 def make_sentiment_graph(n):
-    sentiment_count = get_label_count()
-    return get_sentiment_graph(sentiment_count)
+    df = from_redis_sentiment_prediction_to_df(RedisClient.get_data_from_list(settings.KAFKA_SENTIMENT_TOPIC))
+    RedisClient.delete_key(settings.KAFKA_SENTIMENT_TOPIC)
+    sentiment_count = get_label_count(df)
+    return get_pie_graph(sentiment_count, get_sentiment_color, "Sentiment Percentage")
 
 
-@app.callback(Output('emotion_graph', 'figure'),  [Input("my_interval", "n_intervals"), ], prevent_initial_call=False)
+@app.callback(Output('emotion_graph', 'figure'),  [Input("my_interval", "n_intervals")])
 def make_emotion_graph(n):
-    emotion_count = get_label_count()
-    return get_emotion_graph(emotion_count)
-
-
-@app.callback(
-    Output("negative-tab-content", "children"),
-    [Input("negative_tab", "active_tab")]
-)
-def switch_negative_tab(active_tab):
-    if active_tab == "tab-negative-word-cloud":
-        return layout_negative_wordcloud
-    elif active_tab == "tab-negative-word-count":
-        return layout_grapth_negative_word_count
-
-@app.callback(
-    Output("positive-tab-content", "children"),
-    [Input("positive_tab", "active_tab")]
-)
-def switch_positive_tab(active_tab):
-    if active_tab == "tab-positive-word-cloud":
-        return layout_positive_wordcloud
-    elif active_tab == "tab-positive-word-count":
-        return layout_grapth_positive_word_count
-
+    df = form_redis_emotion_prediction_to_df(RedisClient.get_data_from_list(settings.KAFKA_EMOTION_TOPIC))
+    RedisClient.delete_key(settings.KAFKA_EMOTION_TOPIC)
+    emotion_count = get_label_count(df)
+    return get_pie_graph(emotion_count, get_emotion_color, "Emotion Percentage")
 
 @app.callback(
     Output('keywords-wordcloud', 'src'),
     [Input('my_interval', 'n_intervals')],
 )
 def generate_key_wordcloud(n, ):
-    text = redis_client.get_data(settings.KAFKA_KEYWORDS_TOPIC)['output'].str.cat()
+    text = process_redis_output_for_wordcloud(RedisClient.get_data_from_list(settings.KAFKA_KEYWORDS_TOPIC))
     if not text:
         dash.exceptions.PreventUpdate
-    redis_client.delete_data(settings.KAFKA_KEYWORDS_TOPIC)
-    return services_client.get_wordcloud_from_text(text)
+    redis_client.delete_key(settings.KAFKA_KEYWORDS_TOPIC)
+    return services_client.get_wordcloud_from_text(text)['output']
 
 @app.callback(
     Output('ner-wordcloud', 'src'),
     [Input('my_interval', 'n_intervals')],
 )
 def generate_ner_wordcloud(n, ):
-    text = redis_client.get_data(settings.KAFKA_NER_TOPIC)['output'].str.cat()
+    text = process_redis_output_for_wordcloud(RedisClient.get_data_from_list(settings.KAFKA_NER_TOPIC))
     if not text:
         dash.exceptions.PreventUpdate
-    redis_client.delete_data(settings.KAFKA_NER_TOPIC)
-    return services_client.get_wordcloud_from_text(text)
+    redis_client.delete_key(settings.KAFKA_NER_TOPIC)
+    return services_client.get_wordcloud_from_text(text)['output']
 
 
 if __name__ == '__main__':

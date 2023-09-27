@@ -8,6 +8,7 @@ from config import settings
 r = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, charset='utf-8', decode_responses=True)
 
 class RedisClient:
+    redis = r
     @staticmethod
     def get_data_from_list(key: str) -> pd.DataFrame:
         data = [
@@ -23,6 +24,4 @@ class RedisClient:
 
 
 if __name__ == '__main__':
-    rc = RedisClient()
-    df = rc.get_data_from_list(settings.KAFKA_KEYWORDS_TOPIC)
-    print(df)
+    print(RedisClient.redis.keys())

@@ -27,9 +27,9 @@ def get_final_sentiment_label(label, proba):
     return NEUTRAL if proba < NEUTRAL_THRESHOLD else label
 
 
-def read_emotion_model_prediction(data):
+def process_model_prediction_to_df(data):
     df = pd.DataFrame(data)
-    df['outputs'] = df['outputs'].apply(lambda x: np.argmax(x))
+    df['outputs'] = df['outputs'].apply(lambda x: np.argmax(eval(str(x))))
     return df
 
 
@@ -42,15 +42,15 @@ def interpret_emotion_prediction(x):
     return index_to_classes[x]
 
 
-def form_emotion_prediction_df(data):
-    df = read_emotion_model_prediction(data)
+def form_redis_emotion_prediction_to_df(data):
+    df = process_model_prediction_to_df(data)
     df['label'] = df['outputs'].apply(interpret_emotion_prediction)
     return df
 
 
 def read_sentiment_model_prediction(data):
     df = pd.DataFrame(data)
-    df['outputs'] = df['outputs'].apply(lambda x: x[0])
+    df['outputs'] = df['outputs'].apply(lambda x: x[0][0])
     return df
 
 
@@ -67,29 +67,28 @@ def interpret_sentiment_prediction(x):
     return label, negative_percent, positive_percent
 
 
-def form_sntiment_prediction_df(data):
+def from_redis_sentiment_prediction_to_df(data):
     df = read_sentiment_model_prediction(data)
     df['label'], df['negative'], df['positive'] = zip(
         *df['outputs'].apply(interpret_sentiment_prediction))
     return df
 
-def make_sentiment_wordcloud(df_preds, sentiment):
+def get_sentiment_text(df_preds, sentiment):
     sentiment_instances = df_preds[df_preds['label'] == sentiment]
     instances = sentiment_instances['text'].tolist()
-    text = " ".join(instances)
-
-    mask = np.array(Image.open("reddit.png"))
-    wordcloud = WordCloud(stopwords=stopwords, background_color="#1D262F",
-                          max_words=1000, mask=mask, contour_color='yellow', random_state=42, colormap='tab20c',).generate(text)
-    return wordcloud.to_image()
-
+    return " ".join(instances)
 
 def process_redis_output_for_wordcloud(output: dict):
     df = pd.DataFrame(output)
-    df['outputs'] = df['outputs'].replace("[", '')
-    df['outputs'] = df['outputs'].replace("]", '')
-    df['outputs'] = df['outputs'].replace(",", '')
-    return df
+    df['output'] = df['output'].astype(str)
+    df['output'] = df['output'].str.replace("[", '', regex=True)
+    df['output'] = df['output'].str.replace("]", '',regex=True)
+    df['output'] = df['output'].str.replace(",", '',regex=True)
+    return df['output'].str.cat()
 
-def process_redis_output_for_emotion(output: dict):
-    df = pd.DataFrame(output)
+
+if __name__ == "__main__":
+    from config import settings
+    from redis_handler import RedisClient
+
+    print(from_redis_sentiment_prediction_to_df(RedisClient().get_data_from_list(settings.KAFKA_SENTIMENT_TOPIC)))
